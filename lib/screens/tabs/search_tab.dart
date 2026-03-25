@@ -8,177 +8,330 @@ class SearchTab extends StatefulWidget {
   State<SearchTab> createState() => _SearchTabState();
 }
 
-class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMixin {
-  final TextEditingController _searchController = TextEditingController();
-  final FocusNode _searchFocus = FocusNode();
-  
-  bool _hasSearched = false;
-  bool _isLoading = false;
-// Removed _query
+class _SearchTabState extends State<SearchTab>
+    with SingleTickerProviderStateMixin {
+  final TextEditingController _ctrl = TextEditingController();
+  final FocusNode _focus = FocusNode();
 
-  late AnimationController _fadeController;
-  late Animation<double> _fadeAnimation;
+  bool _hasSearched = false;
+  bool _loading = false;
+  int _activeFilter = 0;
+
+  late final AnimationController _fadeCtrl;
+  late final Animation<double> _fadeAnim;
 
   @override
   void initState() {
     super.initState();
-    _fadeController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 500));
-    _fadeAnimation = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
-    
-    // Auto-focus on search if we wanted, but let's let the user tap it
+    _fadeCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 400));
+    _fadeAnim =
+        CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
+    _ctrl.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
-    _searchFocus.dispose();
-    _fadeController.dispose();
+    _ctrl.dispose();
+    _focus.dispose();
+    _fadeCtrl.dispose();
     super.dispose();
   }
 
-  void _performSearch(String query) {
-    if (query.trim().isEmpty) return;
-    
+  void _search(String q) {
+    if (q.trim().isEmpty) return;
+    _focus.unfocus();
     setState(() {
-      _isLoading = true;
+      _loading = true;
       _hasSearched = true;
     });
-
-    // Simulate network request
-    Future.delayed(const Duration(milliseconds: 800), () {
+    Future.delayed(const Duration(milliseconds: 700), () {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        _fadeController.forward(from: 0.0);
+        setState(() => _loading = false);
+        _fadeCtrl.forward(from: 0);
       }
     });
+  }
+
+  void _clear() {
+    _ctrl.clear();
+    setState(() {
+      _hasSearched = false;
+      _activeFilter = 0;
+    });
+    _fadeCtrl.reset();
+    _focus.requestFocus();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.offWhite,
+      backgroundColor: AppTheme.fog,
       body: SafeArea(
         bottom: false,
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 400),
-          child: _hasSearched ? _buildResultsView() : _buildInitialView(),
-        ),
-      ),
-    );
-  }
-
-  // ─────────────────────────────────────────
-  //  INITIAL VIEW (Google-like)
-  // ─────────────────────────────────────────
-  Widget _buildInitialView() {
-    return Center(
-      key: const ValueKey('initial'),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              'Finder',
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    fontSize: 48,
-                    color: AppTheme.black,
-                    letterSpacing: -2,
-                  ),
-            ),
-            const SizedBox(height: 32),
-            Container(
-              height: 56,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              decoration: BoxDecoration(
-                color: AppTheme.white,
-                borderRadius: BorderRadius.circular(28),
-                boxShadow: AppTheme.shadowMd,
-                border: Border.all(color: AppTheme.lightGray.withValues(alpha: 0.5)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.search_rounded, color: AppTheme.midGray, size: 24),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      focusNode: _searchFocus,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: AppTheme.black,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      textInputAction: TextInputAction.search,
-                      onSubmitted: _performSearch,
-                      decoration: InputDecoration(
-                        hintText: 'Search places, events, food...',
-                        hintStyle: TextStyle(
-                          color: AppTheme.midGray,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        border: InputBorder.none,
-                      ),
-                    ),
-                  ),
-                  if (_searchController.text.isNotEmpty)
-                    GestureDetector(
-                      onTap: () {
-                        _searchController.clear();
-                        setState(() {});
-                      },
-                      child: const Icon(Icons.close_rounded, color: AppTheme.midGray, size: 20),
-                    ),
-                ],
+            if (_hasSearched) _buildSearchHeader(),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 350),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                child: _hasSearched
+                    ? _buildResults()
+                    : _buildDiscover(),
               ),
             ),
-            const SizedBox(height: 24),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              alignment: WrapAlignment.center,
-              children: [
-                _buildQuickChip('best gol gappas near me'),
-                _buildQuickChip('Coffee shops'),
-                _buildQuickChip('Live music tonight'),
-              ],
-            ),
-            const SizedBox(height: 80), // Offset for bottom nav
           ],
         ),
       ),
     );
   }
 
-  Widget _buildQuickChip(String label) {
+  // ─── SEARCH HEADER ───────────────────────
+  Widget _buildSearchHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+      child: Container(
+        height: 54,
+        decoration: BoxDecoration(
+          color: AppTheme.snow,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: AppTheme.shadowMd,
+        ),
+        child: Row(
+          children: [
+            if (_hasSearched) ...[
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: _clear,
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppTheme.fog,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.arrow_back_rounded,
+                      size: 20, color: AppTheme.ink),
+                ),
+              ),
+            ] else ...[
+              const SizedBox(width: 18),
+              const Icon(Icons.search_rounded,
+                  size: 20, color: AppTheme.stone),
+            ],
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _ctrl,
+                focusNode: _focus,
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: AppTheme.ink,
+                  fontWeight: FontWeight.w500,
+                ),
+                textInputAction: TextInputAction.search,
+                onSubmitted: _search,
+                decoration: InputDecoration(
+                  hintText: 'Restaurants, events, people…',
+                  hintStyle: TextStyle(
+                    color: AppTheme.pebble,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w400,
+                  ),
+                  border: InputBorder.none,
+                  isDense: true,
+                ),
+              ),
+            ),
+            if (_ctrl.text.isNotEmpty) ...[
+              GestureDetector(
+                onTap: _clear,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: AppTheme.silver,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.close_rounded,
+                        size: 12, color: AppTheme.snow),
+                  ),
+                ),
+              ),
+            ] else ...[
+              Padding(
+                padding: const EdgeInsets.only(right: 14),
+                child: GestureDetector(
+                  onTap: () {},
+                  child: const Icon(Icons.tune_rounded,
+                      size: 20, color: AppTheme.stone),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── DISCOVER (initial) ──────────────────
+  Widget _buildDiscover() {
+    return SingleChildScrollView(
+      key: const ValueKey('discover'),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Logo ──
+          const SizedBox(height: 52),
+          Center(
+            child: Text(
+              'Finder',
+              style: const TextStyle(
+                fontSize: 56,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -3,
+                height: 1,
+                color: AppTheme.ink,
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+          // ── Inline search bar ──
+          Container(
+            height: 54,
+            decoration: BoxDecoration(
+              color: AppTheme.snow,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: AppTheme.shadowMd,
+            ),
+            child: Row(
+              children: [
+                const SizedBox(width: 18),
+                const Icon(Icons.search_rounded,
+                    size: 20, color: AppTheme.stone),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _ctrl,
+                    focusNode: _focus,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: AppTheme.ink,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: _search,
+                    decoration: InputDecoration(
+                      hintText: 'Restaurants, events, people…',
+                      hintStyle: TextStyle(
+                        color: AppTheme.pebble,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      border: InputBorder.none,
+                      isDense: true,
+                    ),
+                  ),
+                ),
+                if (_ctrl.text.isNotEmpty)
+                  GestureDetector(
+                    onTap: () {
+                      _ctrl.clear();
+                      setState(() {});
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: const BoxDecoration(
+                          color: AppTheme.silver,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close_rounded,
+                            size: 12, color: AppTheme.snow),
+                      ),
+                    ),
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.only(right: 14),
+                    child: GestureDetector(
+                      onTap: () {},
+                      child: const Icon(Icons.tune_rounded,
+                          size: 20, color: AppTheme.stone),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 28),
+          // Quick suggestions
+          Text(
+            'Quick searches',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: AppTheme.stone,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _chip('Best gol gappas', Icons.search_rounded),
+              _chip('Coffee shops', Icons.local_cafe_rounded),
+              _chip('Live music tonight', Icons.music_note_rounded),
+              _chip('Sunset spots', Icons.wb_sunny_rounded),
+              _chip('Vegetarian', Icons.eco_rounded),
+              _chip('Open now', Icons.access_time_rounded),
+            ],
+          ),
+          const SizedBox(height: 32),
+          // Trending categories
+          Text(
+            'Trending',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const SizedBox(height: 16),
+          ..._trendingCategories(),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip(String label, IconData icon) {
     return GestureDetector(
       onTap: () {
-        _searchController.text = label;
-        _performSearch(label);
+        _ctrl.text = label;
+        _search(label);
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
-          color: AppTheme.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: AppTheme.shadowSm,
-          border: Border.all(color: AppTheme.lightGray.withValues(alpha: 0.5)),
+          color: AppTheme.snow,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: AppTheme.shadowXs,
+          border: Border.all(
+              color: AppTheme.silver.withValues(alpha: 0.6), width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.history_rounded, size: 14, color: AppTheme.gray),
-            const SizedBox(width: 6),
+            Icon(icon, size: 14, color: AppTheme.stone),
+            const SizedBox(width: 7),
             Text(
               label,
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: AppTheme.gray,
+                color: AppTheme.slate,
               ),
             ),
           ],
@@ -187,109 +340,157 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
     );
   }
 
-  // ─────────────────────────────────────────
-  //  RESULTS VIEW
-  // ─────────────────────────────────────────
-  Widget _buildResultsView() {
+  List<Widget> _trendingCategories() {
+    final cats = [
+      _TrendCat('Street Food', '320+ spots', Icons.fastfood_rounded,
+          const Color(0xFFFF9F0A)),
+      _TrendCat('Live Music', '80+ events', Icons.music_note_rounded,
+          const Color(0xFF5E5CE6)),
+      _TrendCat('Cafés', '160+ places', Icons.local_cafe_rounded,
+          AppTheme.accent),
+      _TrendCat('Markets', '45+ listings', Icons.storefront_rounded,
+          const Color(0xFF34C759)),
+    ];
+    return cats.map((c) => _trendCatTile(c)).toList();
+  }
+
+  Widget _trendCatTile(_TrendCat c) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.snow,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: AppTheme.shadowSm,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: c.color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(c.icon, color: c.color, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(c.name,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.ink,
+                      letterSpacing: -0.2,
+                    )),
+                const SizedBox(height: 2),
+                Text(c.count,
+                    style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.stone,
+                        fontWeight: FontWeight.w500)),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right_rounded,
+              size: 20, color: AppTheme.silver),
+        ],
+      ),
+    );
+  }
+
+  // ─── RESULTS VIEW ────────────────────────
+  Widget _buildResults() {
     return Column(
       key: const ValueKey('results'),
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Top search bar (Sticky)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-          child: Row(
-            children: [
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _hasSearched = false;
-                    _searchController.clear();
-                  });
-                },
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppTheme.white,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: AppTheme.shadowSm,
-                  ),
-                  child: const Icon(Icons.arrow_back_rounded, color: AppTheme.black, size: 22),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Container(
-                  height: 44,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.white,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: AppTheme.shadowSm,
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.search_rounded, color: AppTheme.midGray, size: 18),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          controller: _searchController,
-                          textInputAction: TextInputAction.search,
-                          onSubmitted: _performSearch,
-                          style: const TextStyle(fontSize: 15, color: AppTheme.black),
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => _searchController.clear(),
-                        child: const Icon(Icons.close_rounded, color: AppTheme.midGray, size: 18),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // Filter chips row
+        // Filter chips
         SizedBox(
-          height: 36,
-          child: ListView(
+          height: 38,
+          child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            children: [
-              _buildFilterChip('Top Rated', true),
-              const SizedBox(width: 8),
-              _buildFilterChip('Open Now', false),
-              const SizedBox(width: 8),
-              _buildFilterChip('Distance', false),
-              const SizedBox(width: 8),
-              _buildFilterChip('Price', false),
-            ],
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            itemCount: _filters.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, i) => GestureDetector(
+              onTap: () => setState(() => _activeFilter = i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: _activeFilter == i ? AppTheme.ink : AppTheme.snow,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: _activeFilter == i
+                      ? AppTheme.shadowMd
+                      : AppTheme.shadowXs,
+                  border: _activeFilter == i
+                      ? null
+                      : Border.all(
+                          color: AppTheme.silver.withValues(alpha: 0.6)),
+                ),
+                child: Center(
+                  child: Text(
+                    _filters[i],
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: _activeFilter == i
+                          ? AppTheme.snow
+                          : AppTheme.stone,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
         const SizedBox(height: 16),
-
-        // Results List
+        // Count
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Text(
+            '${_mockResults.length} results found',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppTheme.stone,
+                ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        // List
         Expanded(
-          child: _isLoading
-              ? const Center(
-                  child: CircularProgressIndicator(color: AppTheme.accent),
+          child: _loading
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CircularProgressIndicator(
+                        color: AppTheme.accent,
+                        strokeWidth: 2,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Finding results…',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: AppTheme.stone),
+                      ),
+                    ],
+                  ),
                 )
               : FadeTransition(
-                  opacity: _fadeAnimation,
+                  opacity: _fadeAnim,
                   child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 100), // padding for nav bar
                     physics: const BouncingScrollPhysics(),
+                    padding:
+                        const EdgeInsets.fromLTRB(24, 0, 24, 120),
                     itemCount: _mockResults.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 16),
-                    itemBuilder: (context, index) {
-                      return _buildResultCard(_mockResults[index]);
-                    },
+                    separatorBuilder: (_, __) => const SizedBox(height: 16),
+                    itemBuilder: (_, i) => _resultCard(_mockResults[i]),
                   ),
                 ),
         ),
@@ -297,122 +498,131 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
     );
   }
 
-  Widget _buildFilterChip(String label, bool isSelected) {
+  Widget _resultCard(_SearchResult r) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: isSelected ? AppTheme.black : AppTheme.white,
+        color: AppTheme.snow,
         borderRadius: BorderRadius.circular(10),
-        border: isSelected ? null : Border.all(color: AppTheme.lightGray),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: isSelected ? AppTheme.white : AppTheme.gray,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildResultCard(_SearchResult item) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        borderRadius: BorderRadius.circular(16),
         boxShadow: AppTheme.shadowSm,
-        border: Border.all(color: AppTheme.lightGray.withValues(alpha: 0.5)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Image
-          SizedBox(
-            height: 160,
-            width: double.infinity,
-            child: Image.network(
-              item.imageUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Container(
-                color: AppTheme.lightGray,
-                child: const Icon(Icons.image_not_supported_rounded, color: AppTheme.midGray),
-              ),
+          // Image placeholder
+          Container(
+            height: 150,
+            color: r.color.withValues(alpha: 0.1),
+            child: Stack(
+              children: [
+                Center(child: Icon(r.icon, size: 48, color: r.color)),
+                Positioned(
+                  bottom: 10,
+                  right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: AppTheme.snow,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: AppTheme.shadowSm,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.star_rounded,
+                            size: 13, color: Color(0xFFFF9F0A)),
+                        const SizedBox(width: 4),
+                        Text(
+                          r.rating,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.ink,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          // Content
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       child: Text(
-                        item.name,
+                        r.name,
                         style: const TextStyle(
-                          fontSize: 18,
+                          fontSize: 17,
                           fontWeight: FontWeight.w700,
-                          color: AppTheme.black,
+                          color: AppTheme.ink,
                           letterSpacing: -0.3,
                         ),
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
+                        color: AppTheme.success.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.star_rounded, color: Color(0xFF10B981), size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            item.rating,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF10B981),
-                            ),
-                          ),
-                        ],
+                      child: const Text(
+                        'Open',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.success,
+                        ),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  item.description,
+                  r.description,
                   style: const TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.gray,
+                    fontSize: 13,
+                    color: AppTheme.stone,
+                    height: 1.4,
                   ),
                 ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    const Icon(Icons.location_on_rounded, color: AppTheme.midGray, size: 14),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${item.distance} • ${item.category}',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.midGray,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.fog,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        r.category,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.slate,
+                        ),
                       ),
                     ),
-                    const Spacer(),
-                    const Text(
-                      'Open Now',
-                      style: TextStyle(
+                    const SizedBox(width: 8),
+                    const Icon(Icons.location_on_rounded,
+                        size: 12, color: AppTheme.pebble),
+                    const SizedBox(width: 2),
+                    Text(
+                      r.distance,
+                      style: const TextStyle(
                         fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.accent,
+                        color: AppTheme.pebble,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
@@ -426,26 +636,42 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
   }
 }
 
-// Mock Data Models
-class _SearchResult {
-  final String name;
-  final String description;
-  final String rating;
-  final String distance;
-  final String category;
-  final String imageUrl;
+// ─── Filters ─────────────────────────────
 
-  _SearchResult(this.name, this.description, this.rating, this.distance, this.category, this.imageUrl);
+const List<String> _filters = [
+  'Best Match',
+  'Open Now',
+  'Nearest',
+  'Top Rated',
+  'Price',
+];
+
+// ─── Models ──────────────────────────────
+
+class _TrendCat {
+  final String name, count;
+  final IconData icon;
+  final Color color;
+  _TrendCat(this.name, this.count, this.icon, this.color);
+}
+
+class _SearchResult {
+  final String name, description, rating, distance, category;
+  final Color color;
+  final IconData icon;
+  _SearchResult(this.name, this.description, this.rating, this.distance,
+      this.category, this.color, this.icon);
 }
 
 final List<_SearchResult> _mockResults = [
   _SearchResult(
     'Raju Chaat Bhandar',
-    'Famous for highly spicy street style spicy water and crispy suji puris.',
+    'Famous for spicy street-style pani puri and crispy suji puris.',
     '4.8',
     '1.2 km',
     'Street Food',
-    'https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&q=80&w=600',
+    const Color(0xFFFF9F0A),
+    Icons.fastfood_rounded,
   ),
   _SearchResult(
     'Bikanerwala',
@@ -453,22 +679,26 @@ final List<_SearchResult> _mockResults = [
     '4.5',
     '3.5 km',
     'Sweets & Snacks',
-    'https://images.unsplash.com/photo-1596450514735-a131acfce16b?auto=format&fit=crop&q=80&w=600',
+    AppTheme.accent,
+    Icons.storefront_rounded,
   ),
   _SearchResult(
     'Sharma Ji Gol Gappe',
-    'Known for 6 different flavors of water ranging from sweet to extra spicy.',
+    'Known for 6 different flavors ranging from sweet to extra spicy.',
     '4.9',
     '0.8 km',
     'Street Cart',
-    'https://images.unsplash.com/photo-1626784365511-b0622fa57276?auto=format&fit=crop&q=80&w=600',
+    const Color(0xFF34C759),
+    Icons.local_dining_rounded,
   ),
   _SearchResult(
     'Haldiram\'s',
-    'Premium quality hygienic stuffed gol gappas with sweet curd and chutney.',
+    'Premium quality stuffed gol gappas with sweet curd and chutney.',
     '4.3',
     '4.1 km',
     'Restaurant',
-    'https://images.unsplash.com/photo-1606491956689-2ea866880c84?auto=format&fit=crop&q=80&w=600',
+    const Color(0xFF5E5CE6),
+    Icons.restaurant_rounded,
   ),
 ];
+

@@ -1,5 +1,3 @@
-import 'dart:ui';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../theme/app_theme.dart';
@@ -15,30 +13,24 @@ class ProfileTab extends StatefulWidget {
 class _ProfileTabState extends State<ProfileTab> {
   String? _healthStatus;
   bool _loading = false;
+  bool _healthOk = false;
 
-  // Mocked user data
-  final Map<String, dynamic> _user = const {
-    'name': 'Ava Carter',
-    'username': '@avacarter',
-    'bio': 'Design lover. Food explorer. Dreaming big.',
-    'avatar': 'https://randomuser.me/api/portraits/women/44.jpg',
-    'stats': {
-      'Saved': 42,
-      'Reviews': 18,
-      'Followers': 1.2,
-    },
-  };
+  final _name     = 'Rohit Chaudhary';
+  final _username = '@rohitchaudhary';
+  final _bio      = 'Explorer. Builder. Finder of good things.';
 
   Future<void> _checkHealth() async {
     setState(() => _loading = true);
     try {
       final res = await http.get(Uri.parse(ApiConfig.healthEndpoint));
       setState(() {
-        _healthStatus = res.statusCode == 200 ? res.body : 'Error: ${res.statusCode}';
+        _healthOk = res.statusCode == 200;
+        _healthStatus = res.statusCode == 200 ? res.body : 'Error ${res.statusCode}';
       });
     } catch (e) {
       setState(() {
-        _healthStatus = 'Failed: $e';
+        _healthOk = false;
+        _healthStatus = 'Connection failed';
       });
     } finally {
       setState(() => _loading = false);
@@ -48,206 +40,188 @@ class _ProfileTabState extends State<ProfileTab> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.offWhite,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
+      backgroundColor: AppTheme.fog,
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(child: _buildTop()),
+          SliverToBoxAdapter(child: _buildStats()),
+          SliverToBoxAdapter(child: _buildHealthSection()),
+          SliverToBoxAdapter(child: _buildMenu()),
+          SliverToBoxAdapter(child: _buildFooter()),
+          const SliverToBoxAdapter(child: SizedBox(height: 120)),
+        ],
+      ),
+    );
+  }
+
+  // ─── TOP (avatar + name) ─────────────────
+  Widget _buildTop() {
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Avatar with glass effect
-                Center(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(60),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.accent.withOpacity(0.08),
-                          blurRadius: 32,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(60),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
-                        child: Image.network(
-                          _user['avatar']!,
-                          width: 120,
-                          height: 120,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  _user['name']!,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 28,
-                        color: AppTheme.black,
-                        letterSpacing: -1.2,
-                      ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  _user['username']!,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    color: AppTheme.midGray,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  _user['bio']!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: AppTheme.gray,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-                const SizedBox(height: 28),
-                // Stats
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _statCard('Saved', _user['stats']['Saved'].toString()),
-                    _divider(),
-                    _statCard('Reviews', _user['stats']['Reviews'].toString()),
-                    _divider(),
-                    _statCard('Followers', '${_user['stats']['Followers']}k'),
-                  ],
-                ),
-                const SizedBox(height: 36),
-                // Health check button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _loading ? null : _checkHealth,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.accent,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      textStyle: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    child: _loading
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Text('Check Backend Health'),
-                  ),
-                ),
-                if (_healthStatus != null) ...[
-                  const SizedBox(height: 18),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: AppTheme.white.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: AppTheme.shadowSm,
-                    ),
-                    child: Text(
-                      _healthStatus!,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        color: AppTheme.black,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 40),
-                // Premium badge with environment
+                // Avatar
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                  width: 72,
+                  height: 72,
                   decoration: BoxDecoration(
-                    color: AppTheme.accent.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(12),
+                    color: AppTheme.charcoal,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: AppTheme.shadowMd,
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(Icons.verified_rounded, color: AppTheme.accent, size: 20),
-                      SizedBox(width: 8),
+                  child: const Center(
+                    child: Text(
+                      'RC',
+                      style: TextStyle(
+                        color: AppTheme.snow,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -1,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 4),
                       Text(
-                        'Insanely Premium Experience',
-                        style: TextStyle(
-                          color: AppTheme.accent,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
+                        _name,
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineSmall
+                            ?.copyWith(letterSpacing: -0.8),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _username,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.stone,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                // Environment indicator
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
-                    color: AppTheme.lightGray.withOpacity(0.5),
+                    color: AppTheme.snow,
                     borderRadius: BorderRadius.circular(10),
+                    boxShadow: AppTheme.shadowSm,
                   ),
-                  child: Text(
-                    'Environment: ${ApiConfig.environmentDisplay}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.midGray,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                  child: const Icon(Icons.edit_rounded,
+                      size: 18, color: AppTheme.slate),
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 16),
+            Text(
+              _bio,
+              style: const TextStyle(
+                fontSize: 15,
+                color: AppTheme.slate,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Premium tag
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: AppTheme.accentDim,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Icon(Icons.verified_rounded,
+                      size: 15, color: AppTheme.accent),
+                  SizedBox(width: 6),
+                  Text(
+                    'Premium Member',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.accent,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _statCard(String label, String value) {
-    return Container(
-      width: 90,
-      padding: const EdgeInsets.symmetric(vertical: 18),
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: AppTheme.shadowSm,
+  // ─── STATS ROW ───────────────────────────
+  Widget _buildStats() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        decoration: BoxDecoration(
+          color: AppTheme.snow,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: AppTheme.shadowSm,
+        ),
+        child: Row(
+          children: [
+            _statItem('42', 'Saved', Icons.bookmark_rounded,
+                const Color(0xFF5E5CE6)),
+            _dividerLine(),
+            _statItem('18', 'Reviews', Icons.star_rounded,
+                const Color(0xFFFF9F0A)),
+            _dividerLine(),
+            _statItem('1.2k', 'Followers', Icons.people_rounded,
+                AppTheme.accent),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _statItem(String value, String label, IconData icon, Color color) {
+    return Expanded(
       child: Column(
         children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(height: 8),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.black,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.ink,
               letterSpacing: -0.5,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             label,
             style: const TextStyle(
-              fontSize: 13,
-              color: AppTheme.gray,
+              fontSize: 12,
+              color: AppTheme.stone,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -256,13 +230,237 @@ class _ProfileTabState extends State<ProfileTab> {
     );
   }
 
-  Widget _divider() => Container(
-        width: 18,
-        height: 2,
-        margin: const EdgeInsets.symmetric(horizontal: 2),
+  Widget _dividerLine() {
+    return Container(
+      width: 1,
+      height: 48,
+      color: AppTheme.silver.withValues(alpha: 0.5),
+    );
+  }
+
+  // ─── HEALTH SECTION ──────────────────────
+  Widget _buildHealthSection() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+      child: Column(
+        children: [
+          // Button
+          GestureDetector(
+            onTap: _loading ? null : _checkHealth,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: double.infinity,
+              height: 56,
+              decoration: BoxDecoration(
+                color: _loading ? AppTheme.lightGray : AppTheme.charcoal,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: _loading
+                    ? []
+                    : [
+                        BoxShadow(
+                          color: AppTheme.charcoal.withValues(alpha: 0.3),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                          spreadRadius: -4,
+                        )
+                      ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (_loading)
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.stone,
+                      ),
+                    )
+                  else ...[
+                    const Icon(Icons.cloud_done_rounded,
+                        size: 20, color: AppTheme.snow),
+                    const SizedBox(width: 10),
+                    const Text(
+                      'Check Backend Health',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.snow,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          // Result
+          if (_healthStatus != null) ...[
+            const SizedBox(height: 12),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: _healthOk
+                    ? AppTheme.success.withValues(alpha: 0.08)
+                    : AppTheme.error.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: _healthOk
+                      ? AppTheme.success.withValues(alpha: 0.25)
+                      : AppTheme.error.withValues(alpha: 0.25),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _healthOk
+                        ? Icons.check_circle_rounded
+                        : Icons.error_rounded,
+                    size: 18,
+                    color: _healthOk ? AppTheme.success : AppTheme.error,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _healthStatus!,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: _healthOk ? AppTheme.success : AppTheme.error,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ─── MENU ────────────────────────────────
+  Widget _buildMenu() {
+    final items = [
+      _MenuItem('Saved Places', Icons.bookmark_rounded,
+          const Color(0xFF5E5CE6)),
+      _MenuItem('My Reviews', Icons.star_rounded,
+          const Color(0xFFFF9F0A)),
+      _MenuItem('Settings', Icons.settings_rounded,
+          AppTheme.slate),
+      _MenuItem('Help & Support', Icons.help_rounded,
+          const Color(0xFF34C759)),
+      _MenuItem('Sign Out', Icons.logout_rounded,
+          AppTheme.error),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
+      child: Container(
         decoration: BoxDecoration(
-          color: AppTheme.lightGray.withOpacity(0.3),
-          borderRadius: BorderRadius.circular(2),
+          color: AppTheme.snow,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: AppTheme.shadowSm,
         ),
-      );
+        child: Column(
+          children: List.generate(items.length, (i) {
+            final m = items[i];
+            final isLast = i == items.length - 1;
+            return Column(
+              children: [
+                GestureDetector(
+                  onTap: () {},
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 15),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: m.color.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child:
+                              Icon(m.icon, size: 18, color: m.color),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            m.label,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: isLast
+                                  ? AppTheme.error
+                                  : AppTheme.ink,
+                            ),
+                          ),
+                        ),
+                        if (!isLast)
+                          const Icon(Icons.chevron_right_rounded,
+                              size: 20, color: AppTheme.silver),
+                      ],
+                    ),
+                  ),
+                ),
+                if (!isLast)
+                  Divider(
+                    height: 1,
+                    indent: 70,
+                    endIndent: 18,
+                    color: AppTheme.silver.withValues(alpha: 0.5),
+                  ),
+              ],
+            );
+          }),
+        ),
+      ),
+    );
+  }
+
+  // ─── FOOTER ──────────────────────────────
+  Widget _buildFooter() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+      child: Center(
+        child: Column(
+          children: [
+            Text(
+              'Environment: ${ApiConfig.environmentDisplay}',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.pebble,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Finder v1.0.0',
+              style: TextStyle(
+                fontSize: 11,
+                color: AppTheme.pebble,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
+
+// ─── Model ───────────────────────────────
+
+class _MenuItem {
+  final String label;
+  final IconData icon;
+  final Color color;
+  _MenuItem(this.label, this.icon, this.color);
+}
+
+
