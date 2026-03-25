@@ -43,3 +43,24 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+ios/Podfile.lock
+
+
+# iOS Pod files
+ios/Pods/
+ios/Podfile.lock
+ios/.symlinks/
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeralmodules/
+ios/.generated.xcconfig
+
+# Xcode build artifacts
+ios/build/
+*.xcarchive
+*.ipa
+*.dSYM/
+DerivedData/
+
+# CocoaPods
+.pods/

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'tabs/home_tab.dart';
 import 'tabs/search_tab.dart';
+import 'tabs/profile_tab.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,7 +20,8 @@ class _HomeScreenState extends State<HomeScreen> {
     const HomeTab(),
     const SearchTab(),
     const Center(child: Text('Saved (Coming Soon)')),
-    const Center(child: Text('Profile (Coming Soon)')),
+    // Modern Profile Tab
+    const ProfileTab(),
   ];
 
   @override
