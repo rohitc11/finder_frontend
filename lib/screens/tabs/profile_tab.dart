@@ -10,7 +10,7 @@ class ProfileTab extends StatefulWidget {
   State<ProfileTab> createState() => _ProfileTabState();
 }
 
-class _ProfileTabState extends State<ProfileTab> {
+class _ProfileTabState extends State<ProfileTab> {  
   String? _healthStatus;
   bool _loading = false;
   bool _healthOk = false;

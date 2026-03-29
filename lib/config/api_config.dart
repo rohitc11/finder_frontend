@@ -1,62 +1,30 @@
-/// API Configuration for different environments
+/// Central API configuration for the app.
+///
+/// Responsibility:
+/// - keeps backend base URL in one place
+/// - keeps endpoint paths centralized
+/// - exposes small environment labels for UI/debug use
 class ApiConfig {
-  static const String _devBaseUrl = 'http://localhost:8080';
-  static const String _stagingBaseUrl = 'https://staging-api.finder.com';
-  static const String _prodBaseUrl = 'https://api.finder.com';
+  /// Android emulator localhost mapping.
+  ///
+  /// Important:
+  /// - use 10.0.2.2 for Android emulator
+  /// - if testing on physical device, replace with your machine IP
+  static const String baseUrl = 'http://10.0.2.2:8080';
 
-  /// Get base URL based on environment
-  /// Default to dev if not specified
-  static String get baseUrl {
-    const String environment = String.fromEnvironment(
-      'ENVIRONMENT',
-      defaultValue: 'dev',
-    );
+  /// Friendly environment label used in profile/debug UI.
+  static const String environmentDisplay = 'Local';
 
-    switch (environment.toLowerCase()) {
-      case 'prod':
-      case 'production':
-        return _prodBaseUrl;
-      case 'staging':
-      case 'stage':
-        return _stagingBaseUrl;
-      case 'dev':
-      case 'development':
-      default:
-        return _devBaseUrl;
-    }
-  }
+  /// Search suggestion endpoint.
+  static const String suggestionsEndpoint = '$baseUrl/search/suggestions';
 
-  /// Health check endpoint
-  static String get healthEndpoint => '$baseUrl/health';
+  /// Smart search endpoint.
+  static const String smartSearchEndpoint = '$baseUrl/search/items/smart';
 
-  /// Search endpoint
-  static String get searchEndpoint => '$baseUrl/api/v1/search';
-
-  /// User profile endpoint
-  static String get profileEndpoint => '$baseUrl/api/v1/user/profile';
-
-  /// Get environment name
-  static String get environment {
-    const String env = String.fromEnvironment(
-      'ENVIRONMENT',
-      defaultValue: 'dev',
-    );
-    return env.toLowerCase();
-  }
-
-  /// Get user-friendly environment name
-  static String get environmentDisplay {
-    switch (environment) {
-      case 'prod':
-      case 'production':
-        return 'Production';
-      case 'staging':
-      case 'stage':
-        return 'Staging';
-      case 'dev':
-      case 'development':
-      default:
-        return 'Development';
-    }
-  }
+  /// Basic backend health check endpoint.
+  ///
+  /// Note:
+  /// Add Spring Boot actuator health endpoint if needed:
+  /// /actuator/health
+  static const String healthEndpoint = '$baseUrl/actuator/health';
 }

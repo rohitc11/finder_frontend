@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'dart:ui';
 import '../theme/app_theme.dart';
 import 'tabs/home_tab.dart';
-import 'tabs/search_tab.dart';
 import 'tabs/profile_tab.dart';
+import 'tabs/saved_tab.dart';
+import 'tabs/search_tab.dart';
 
+/// Main app shell screen.
+///
+/// Responsibility:
+/// - holds bottom navigation
+/// - switches between main tabs
+/// - preserves tab state using IndexedStack
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -13,139 +18,84 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen> {
+  /// Currently selected bottom navigation tab index.
   int _selectedIndex = 0;
 
-  late final List<AnimationController> _rippleControllers;
+  /// Key used to access SavedTab state and trigger refresh when needed.
+  final GlobalKey<SavedTabState> _savedTabKey = GlobalKey<SavedTabState>();
 
-  @override
-  void initState() {
-    super.initState();
-    _rippleControllers = List.generate(
-      4,
-      (_) => AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 300),
-      ),
-    );
-    _rippleControllers[0].forward();
-  }
-
-  @override
-  void dispose() {
-    for (final c in _rippleControllers) {
-      c.dispose();
-    }
-    super.dispose();
-  }
-
-  void _onTap(int idx) {
-    if (_selectedIndex == idx) return;
-    HapticFeedback.selectionClick();
-    _rippleControllers[_selectedIndex].reverse();
-    setState(() => _selectedIndex = idx);
-    _rippleControllers[idx].forward(from: 0);
-  }
-
-  final List<Widget> _tabs = const [
-    HomeTab(),
-    SearchTab(),
-    Center(child: Text('Saved')),
-    ProfileTab(),
+  /// Main tabs of the application.
+  ///
+  /// Order must match bottom navigation items.
+  late final List<Widget> _tabs = [
+    const HomeTab(),
+    const SearchTab(),
+    SavedTab(key: _savedTabKey),
+    const ProfileTab(),
   ];
+
+  /// Handles bottom navigation tab change.
+  ///
+  /// Also refreshes bucket list when user opens the Bucket List tab.
+  void _onTap(int index) {
+    if (_selectedIndex == index) return;
+
+    setState(() {
+      _selectedIndex = index;
+    });
+
+    // Refresh bucket list whenever user opens that tab.
+    if (index == 2) {
+      _savedTabKey.currentState?.refreshSavedItems();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.fog,
-      extendBody: true,
-      body: IndexedStack(index: _selectedIndex, children: _tabs),
-      bottomNavigationBar: _bottomNav(),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _tabs,
+      ),
+      bottomNavigationBar: _buildBottomNavigation(),
     );
   }
 
-  // ─────────────────────────────────────────
-  //  BOTTOM NAV — Full-width frosted bar
-  // ─────────────────────────────────────────
-  Widget _bottomNav() {
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          decoration: BoxDecoration(
-            color: AppTheme.snow.withValues(alpha: 0.88),
-            border: Border(
-              top: BorderSide(
-                color: AppTheme.silver.withValues(alpha: 0.5),
-                width: 0.5,
-              ),
-            ),
-          ),
-          child: SafeArea(
-            top: false,
-            child: SizedBox(
-              height: 60,
-              child: Row(
-                children: [
-                  _navItem(0, Icons.home_rounded,           Icons.home_outlined,           'Home'),
-                  _navItem(1, Icons.search_rounded,         Icons.search_rounded,          'Explore'),
-                  _navItem(2, Icons.bookmark_rounded,       Icons.bookmark_border_rounded, 'Saved'),
-                  _navItem(3, Icons.person_rounded,         Icons.person_outline_rounded,  'Profile'),
-                ],
-              ),
-            ),
-          ),
+  /// Builds the bottom navigation bar.
+  Widget _buildBottomNavigation() {
+    return BottomNavigationBar(
+      currentIndex: _selectedIndex,
+      onTap: _onTap,
+      type: BottomNavigationBarType.fixed,
+      backgroundColor: Colors.white,
+      selectedItemColor: AppTheme.ink,
+      unselectedItemColor: AppTheme.pebble,
+      selectedFontSize: 12,
+      unselectedFontSize: 12,
+      items: const [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home_outlined),
+          activeIcon: Icon(Icons.home_rounded),
+          label: 'Home',
         ),
-      ),
-    );
-  }
-
-  Widget _navItem(int idx, IconData activeIcon, IconData inactiveIcon, String label) {
-    final selected = _selectedIndex == idx;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => _onTap(idx),
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedBuilder(
-          animation: _rippleControllers[idx],
-          builder: (context, _) {
-            return Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Active indicator dot above icon
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOutCubic,
-                  width: selected ? 20 : 0,
-                  height: selected ? 3 : 0,
-                  margin: const EdgeInsets.only(bottom: 5),
-                  decoration: BoxDecoration(
-                    color: AppTheme.accent,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Icon(
-                  selected ? activeIcon : inactiveIcon,
-                  size: 22,
-                  color: selected ? AppTheme.ink : AppTheme.pebble,
-                ),
-                const SizedBox(height: 4),
-                AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 200),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-                    color: selected ? AppTheme.ink : AppTheme.pebble,
-                    letterSpacing: 0.1,
-                    fontFamily: 'Inter',
-                  ),
-                  child: Text(label),
-                ),
-              ],
-            );
-          },
+        BottomNavigationBarItem(
+          icon: Icon(Icons.search_outlined),
+          activeIcon: Icon(Icons.search_rounded),
+          label: 'Search',
         ),
-      ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.bookmark_border_rounded),
+          activeIcon: Icon(Icons.bookmark_rounded),
+          label: 'Bucket List',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.person_outline_rounded),
+          activeIcon: Icon(Icons.person_rounded),
+          label: 'Profile',
+        ),
+      ],
     );
   }
 }
