@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/bucket_list_item_model.dart';
 import '../../services/bucket_list_service.dart';
 import '../../theme/app_theme.dart';
+import '../../config/user_session.dart';
 
 /// Saved tab showing user's bookmarked items.
 ///
@@ -17,10 +18,6 @@ class SavedTab extends StatefulWidget {
 }
 
 class SavedTabState extends State<SavedTab> {
-  /// Temporary hardcoded user for testing.
-  ///
-  /// Later this should come from login/session/local storage.
-  static const String _testUserId = '69c9313bc495ce1fa3aeb8c5';
 
   /// Service responsible for bucket-list backend APIs.
   final BucketListService _bucketListService = BucketListService();
@@ -50,7 +47,7 @@ class SavedTabState extends State<SavedTab> {
 
     try {
       final items = await _bucketListService.fetchUserBucketList(
-        userId: _testUserId,
+        userId: UserSession.userId,
       );
 
       if (!mounted) return;
@@ -80,7 +77,7 @@ class SavedTabState extends State<SavedTab> {
 
     try {
       await _bucketListService.removeFromBucketList(
-        userId: _testUserId,
+        userId: UserSession.userId,
         itemId: item.itemId,
       );
     } catch (e) {

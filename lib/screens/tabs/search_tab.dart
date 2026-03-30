@@ -6,6 +6,8 @@ import '../../models/search_result_model.dart';
 import '../../models/suggestion_model.dart';
 import '../../services/search_service.dart';
 import '../../services/bucket_list_service.dart';
+import '../../config/user_session.dart';
+import '../item_detail_screen.dart';
 
 /// Search tab of the application.
 ///
@@ -14,12 +16,6 @@ import '../../services/bucket_list_service.dart';
 /// - shows autocomplete suggestions from backend
 /// - triggers backend smart search
 /// - renders search results in a clean and minimal way
-///
-/// Design goals:
-/// - minimal
-/// - backend-compatible
-/// - scalable
-/// - easy to maintain and extend
 class SearchTab extends StatefulWidget {
   const SearchTab({super.key});
 
@@ -28,7 +24,6 @@ class SearchTab extends StatefulWidget {
 }
 
 class _SearchTabState extends State<SearchTab> {
-
   /// Whether suggestion list should currently be shown.
   ///
   /// This becomes true while user is typing a new query.
@@ -45,11 +40,6 @@ class _SearchTabState extends State<SearchTab> {
 
   /// Service responsible for bookmark add/remove APIs.
   final BucketListService _bucketListService = BucketListService();
-
-  /// Temporary hardcoded user for real product testing.
-  ///
-  /// Later this should come from login/session/local storage.
-  static const String _testUserId = '69c9313bc495ce1fa3aeb8c5';
 
   /// Debounce timer for autocomplete API calls.
   ///
@@ -130,12 +120,12 @@ class _SearchTabState extends State<SearchTab> {
     try {
       if (newValue) {
         await _bucketListService.addToBucketList(
-          userId: _testUserId,
+          userId: UserSession.userId,
           itemId: result.itemId,
         );
       } else {
         await _bucketListService.removeFromBucketList(
-          userId: _testUserId,
+          userId: UserSession.userId,
           itemId: result.itemId,
         );
       }
@@ -245,9 +235,7 @@ class _SearchTabState extends State<SearchTab> {
     try {
       final results = await _searchService.fetchSmartSearch(
         query: trimmedQuery,
-
-        /// Temporary hardcoded user for real bookmark-aware testing.
-        userId: "69c9313bc495ce1fa3aeb8c5",
+        userId: UserSession.userId,
       );
 
       if (!mounted) return;
@@ -310,26 +298,26 @@ class _SearchTabState extends State<SearchTab> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.fog,
-        body: SafeArea(
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: () {
-              FocusScope.of(context).unfocus();
+      body: SafeArea(
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () {
+            FocusScope.of(context).unfocus();
 
-              setState(() {
-                _showSuggestions = false;
-              });
-            },
-            child: Column(
-              children: [
-                _buildSearchHeader(context),
-                Expanded(
-                  child: _buildBody(context),
-                ),
-              ],
-            ),
+            setState(() {
+              _showSuggestions = false;
+            });
+          },
+          child: Column(
+            children: [
+              _buildSearchHeader(context),
+              Expanded(
+                child: _buildBody(context),
+              ),
+            ],
           ),
         ),
+      ),
     );
   }
 
@@ -649,97 +637,107 @@ class _SearchTabState extends State<SearchTab> {
       itemBuilder: (context, index) {
         final result = _results[index];
 
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppTheme.snow,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: AppTheme.shadowXs,
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: AppTheme.offWhite,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  Icons.restaurant_rounded,
-                  color: AppTheme.ink,
-                ),
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ItemDetailScreen(summary: result),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      result.itemName,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      result.restaurantName,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.stone,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${result.areaName}, ${result.city}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.pebble,
-                      ),
-                    ),
-                  ],
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.snow,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: AppTheme.shadowXs,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: AppTheme.offWhite,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.restaurant_rounded,
+                    color: AppTheme.ink,
+                  ),
                 ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Row(
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.star_rounded,
-                        size: 14,
-                        color: Color(0xFFFF9F0A),
-                      ),
-                      const SizedBox(width: 4),
                       Text(
-                        result.avgItemRating?.toStringAsFixed(1) ?? '-',
+                        result.itemName,
                         style: const TextStyle(
-                          fontSize: 13,
+                          fontSize: 15,
                           fontWeight: FontWeight.w700,
                           color: AppTheme.ink,
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        result.restaurantName,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.stone,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${result.areaName}, ${result.city}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.pebble,
+                        ),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  GestureDetector(
-                    onTap: () => _toggleBookmark(result),
-                    child: Icon(
-                      result.isBookmarked
-                          ? Icons.bookmark_rounded
-                          : Icons.bookmark_border_rounded,
-                      color: result.isBookmarked
-                          ? AppTheme.accent
-                          : AppTheme.pebble,
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.star_rounded,
+                          size: 14,
+                          color: Color(0xFFFF9F0A),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          result.avgItemRating?.toStringAsFixed(1) ?? '-',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.ink,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-            ],
+                    const SizedBox(height: 10),
+                    GestureDetector(
+                      onTap: () => _toggleBookmark(result),
+                      child: Icon(
+                        result.isBookmarked
+                            ? Icons.bookmark_rounded
+                            : Icons.bookmark_border_rounded,
+                        color: result.isBookmarked
+                            ? AppTheme.accent
+                            : AppTheme.pebble,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         );
       },
