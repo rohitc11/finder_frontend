@@ -1,4 +1,12 @@
 /// Model representing one full item detail returned by backend.
+///
+/// Notes:
+/// - backend returns location as GeoJSON-like object:
+///   {
+///     "type": "Point",
+///     "coordinates": [longitude, latitude]
+///   }
+/// - frontend exposes latitude / longitude as optional convenience fields
 class ItemModel {
   final String id;
   final String itemName;
@@ -17,6 +25,12 @@ class ItemModel {
   final bool isVerified;
   final bool isActive;
 
+  /// Optional latitude parsed from backend location.coordinates[1]
+  final double? latitude;
+
+  /// Optional longitude parsed from backend location.coordinates[0]
+  final double? longitude;
+
   ItemModel({
     required this.id,
     required this.itemName,
@@ -34,10 +48,25 @@ class ItemModel {
     required this.isAvailable,
     required this.isVerified,
     required this.isActive,
+    required this.latitude,
+    required this.longitude,
   });
 
   /// Creates model from backend JSON response.
-  factory ItemModel.fromJson(Map<String, dynamic> json) {
+  factory ItemModel.fromJson(Map json) {
+    final location = json['location'];
+    double? latitude;
+    double? longitude;
+
+    if (location is Map && location['coordinates'] is List) {
+      final coordinates = location['coordinates'] as List;
+
+      if (coordinates.length >= 2) {
+        longitude = (coordinates[0] as num?)?.toDouble();
+        latitude = (coordinates[1] as num?)?.toDouble();
+      }
+    }
+
     return ItemModel(
       id: json['id'] ?? '',
       itemName: json['itemName'] ?? '',
@@ -55,6 +84,8 @@ class ItemModel {
       isAvailable: json['isAvailable'] ?? false,
       isVerified: json['isVerified'] ?? false,
       isActive: json['isActive'] ?? false,
+      latitude: latitude,
+      longitude: longitude,
     );
   }
 }

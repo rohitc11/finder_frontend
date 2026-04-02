@@ -3,6 +3,12 @@ import '../models/item_model.dart';
 import '../models/search_result_model.dart';
 import '../services/item_service.dart';
 import '../theme/app_theme.dart';
+import '../config/user_session.dart';
+import '../models/review_model.dart';
+import '../models/user_model.dart';
+import '../services/review_service.dart';
+import '../services/user_service.dart';
+import 'reviews/write_review_bottom_sheet.dart';
 
 /// Item detail screen.
 ///
@@ -27,16 +33,126 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   /// Service used to fetch full item details.
   final ItemService _itemService = ItemService();
 
+  /// Service used to fetch reviews for this item.
+  final ReviewService _reviewService = ReviewService();
+
+  /// Service used to fetch current user details for review submission.
+  final UserService _userService = UserService();
+
+  /// Current active user loaded for review submission.
+  UserModel? _currentUser;
+
+  /// Recent reviews loaded for this item.
+  List<ReviewModel> _reviews = [];
+
+  /// Loading state for review fetch.
+  bool _isReviewsLoading = true;
+
   /// Full item detail loaded from backend.
   ItemModel? _item;
 
   /// Loading state for detail fetch.
   bool _isLoading = true;
 
+  /// Returns true if the current active user has already reviewed this item.
+  bool get _hasCurrentUserReviewed {
+    if (_currentUser == null) return false;
+
+    return _reviews.any((review) => review.userId == _currentUser!.id);
+  }
+
   @override
   void initState() {
     super.initState();
-    _loadItemDetail();
+    _loadInitialData();
+  }
+
+  /// Loads all initial data needed for item detail screen.
+  ///
+  /// This keeps launch UI simple:
+  /// - item detail
+  /// - current user
+  /// - recent reviews
+  Future<void> _loadInitialData() async {
+    await Future.wait([
+      _loadItemDetail(),
+      _loadCurrentUser(),
+      _loadReviews(),
+    ]);
+  }
+
+  /// Loads current active user for review submission.
+  Future<void> _loadCurrentUser() async {
+    try {
+      final user = await _userService.fetchUserById(UserSession.userId);
+      if (!mounted) return;
+      setState(() {
+        _currentUser = user;
+      });
+    } catch (_) {
+      // User load failure should not block item screen rendering.
+    }
+  }
+
+  /// Loads reviews for the selected item.
+  Future<void> _loadReviews() async {
+    try {
+      final reviews =
+      await _reviewService.fetchReviewsByItem(widget.summary.itemId);
+
+      if (!mounted) return;
+      setState(() {
+        _reviews = reviews;
+        _isReviewsLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _reviews = [];
+        _isReviewsLoading = false;
+      });
+    }
+  }
+
+  /// Opens write-review sheet and refreshes item data + reviews after success.
+  Future<void> _openWriteReviewSheet() async {
+    if (_currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not load user details for review.'),
+        ),
+      );
+      return;
+    }
+
+    final bool? created = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.fog,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => WriteReviewBottomSheet(
+        itemId: widget.summary.itemId,
+        itemName: _item?.itemName ?? widget.summary.itemName,
+        user: _currentUser!,
+      ),
+    );
+
+    if (created == true) {
+      await Future.wait([
+        _loadItemDetail(),
+        _loadReviews(),
+      ]);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Review submitted successfully.'),
+        ),
+      );
+    }
   }
 
   /// Loads full item detail from backend.
@@ -94,6 +210,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     );
   }
 
+
+
   /// Builds the main item detail body.
   Widget _buildBody(BuildContext context, ItemModel? item) {
     return Padding(
@@ -107,7 +225,13 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
           const SizedBox(height: 20),
           _buildInfoCards(context, item),
           const SizedBox(height: 20),
+          _buildLocationCard(context, item),
+          const SizedBox(height: 20),
           _buildDescriptionCard(context, item),
+          const SizedBox(height: 20),
+          _buildWriteReviewCard(context),
+          const SizedBox(height: 20),
+          _buildReviewsSection(context),
           if (_isLoading) ...[
             const SizedBox(height: 20),
             _buildLoadingCard(context),
@@ -229,7 +353,9 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  '$displayArea, $displayCity',
+                  [if (displayArea.trim().isNotEmpty) displayArea, if (displayCity.trim().isNotEmpty) displayCity]
+                      .join(', ')
+                      .ifEmpty('Location not available'),
                   style: const TextStyle(
                     fontSize: 13,
                     color: AppTheme.pebble,
@@ -299,6 +425,100 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  /// Builds location section for the item.
+  ///
+  /// Behavior:
+  /// - if coordinates exist, show area/city and exact lat/lng
+  /// - if location is missing, show a clear fallback message
+  /// - encourages contribution for missing location data
+  Widget _buildLocationCard(BuildContext context, ItemModel? item) {
+    final String area = (item?.areaName ?? widget.summary.areaName).trim();
+    final String city = (item?.city ?? widget.summary.city).trim();
+    final double? latitude = item?.latitude;
+    final double? longitude = item?.longitude;
+
+    final bool hasReadableLocation = area.isNotEmpty || city.isNotEmpty;
+    final bool hasCoordinates = latitude != null && longitude != null;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppTheme.snow,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppTheme.shadowXs,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Location',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (hasReadableLocation || hasCoordinates) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.location_on_rounded,
+                  size: 18,
+                  color: AppTheme.pebble,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    hasReadableLocation
+                        ? [if (area.isNotEmpty) area, if (city.isNotEmpty) city]
+                        .join(', ')
+                        : 'Coordinates available',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.slate,
+                      height: 1.4,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (hasCoordinates) ...[
+              const SizedBox(height: 10),
+              Text(
+                'Lat: ${latitude.toStringAsFixed(6)}  •  Lng: ${longitude.toStringAsFixed(6)}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.stone,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ] else ...[
+            const Text(
+              'No location available for this item right now.',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppTheme.slate,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'You can still suggest or update this item location later.',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppTheme.stone,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -397,6 +617,180 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     );
   }
 
+  /// Builds the primary review CTA card.
+  ///
+  /// Behavior:
+  /// - allows review if current user has not reviewed yet
+  /// - shows clear submitted state if review already exists
+  Widget _buildWriteReviewCard(BuildContext context) {
+    final bool alreadyReviewed = _hasCurrentUserReviewed;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppTheme.snow,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppTheme.shadowXs,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppTheme.offWhite,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.rate_review_rounded,
+              color: AppTheme.ink,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Rate this item',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.ink,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  alreadyReviewed
+                      ? 'You already reviewed this item.'
+                      : 'Give a quick rating and short review.',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.stone,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ElevatedButton(
+            onPressed: alreadyReviewed ? null : _openWriteReviewSheet,
+            style: ElevatedButton.styleFrom(
+              backgroundColor:
+              alreadyReviewed ? AppTheme.silver : AppTheme.accent,
+              foregroundColor: AppTheme.snow,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              alreadyReviewed ? 'Submitted' : 'Write',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Builds recent reviews section for the item.
+  Widget _buildReviewsSection(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppTheme.snow,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppTheme.shadowXs,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Recent reviews',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 14),
+          if (_isReviewsLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppTheme.accent,
+              ),
+            )
+          else if (_reviews.isEmpty)
+            const Text(
+              'No reviews yet. Be the first to rate this item.',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppTheme.stone,
+              ),
+            )
+          else
+            ..._reviews.take(5).map(_buildReviewTile),
+        ],
+      ),
+    );
+  }
+
+  /// Builds one review tile.
+  Widget _buildReviewTile(ReviewModel review) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppTheme.offWhite,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    review.userName.isNotEmpty ? review.userName : 'User',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.ink,
+                    ),
+                  ),
+                ),
+                Row(
+                  children: List.generate(5, (index) {
+                    return Icon(
+                      index < review.rating
+                          ? Icons.star_rounded
+                          : Icons.star_border_rounded,
+                      size: 16,
+                      color: const Color(0xFFFF9F0A),
+                    );
+                  }),
+                ),
+              ],
+            ),
+            if (review.comment.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                review.comment,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.slate,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Builds loading card shown while full details are being fetched.
   Widget _buildLoadingCard(BuildContext context) {
     return Container(
@@ -478,5 +872,12 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     }
 
     return '${item.currency} ${item.price!.toStringAsFixed(0)}';
+  }
+}
+
+/// Small string helper for cleaner UI fallback text.
+extension _StringFallbackExtension on String {
+  String ifEmpty(String fallback) {
+    return trim().isEmpty ? fallback : this;
   }
 }

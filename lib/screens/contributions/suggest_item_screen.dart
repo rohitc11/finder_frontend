@@ -44,6 +44,16 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
   bool? _isVeg;
   bool _isSubmitting = false;
 
+  /// Controls whether optional fields are expanded or collapsed.
+  ///
+  /// Launch UX decision:
+  /// - keep the form short by default
+  /// - allow power users to add more detail only if they want
+  bool _showOptionalDetails = false;
+
+  /// Controls whether the optional location section is expanded.
+  bool _showLocationSection = false;
+
   @override
   void initState() {
     super.initState();
@@ -286,140 +296,227 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
               ),
               const SizedBox(height: 16),
               _sectionCard(
-                title: 'Optional details',
+                title: 'More details (optional)',
+                subtitle: 'Add only if you want to provide extra context.',
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _textField(
-                          controller: _categoryController,
-                          label: 'Category',
-                          hint: 'Street Food',
-                        ),
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _showOptionalDetails = !_showOptionalDetails;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: AppTheme.fog,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppTheme.silver),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _textField(
-                          controller: _subCategoryController,
-                          label: 'Sub-category',
-                          hint: 'Snacks',
-                        ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _showOptionalDetails
+                                ? Icons.expand_less_rounded
+                                : Icons.expand_more_rounded,
+                            color: AppTheme.ink,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _showOptionalDetails
+                                  ? 'Hide optional fields'
+                                  : 'Add more details',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.ink,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: _textField(
-                          controller: _priceController,
-                          label: 'Price',
-                          hint: '80',
-                          keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _textField(
-                          controller: _currencyController,
-                          label: 'Currency',
-                          hint: 'INR',
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    'Food type',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 10,
-                    children: [
-                      _choicePill(
-                        label: 'Veg',
-                        selected: _isVeg == true,
-                        onTap: () => setState(() => _isVeg = true),
+                  if (_showOptionalDetails) ...[
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _textField(
+                            controller: _categoryController,
+                            label: 'Category',
+                            hint: 'Street Food',
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _textField(
+                            controller: _subCategoryController,
+                            label: 'Sub-category',
+                            hint: 'Snacks',
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: _textField(
+                            controller: _priceController,
+                            label: 'Price',
+                            hint: '80',
+                            keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _textField(
+                            controller: _currencyController,
+                            label: 'Currency',
+                            hint: 'INR',
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Food type',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
                       ),
-                      _choicePill(
-                        label: 'Non-veg',
-                        selected: _isVeg == false,
-                        onTap: () => setState(() => _isVeg = false),
-                      ),
-                      _choicePill(
-                        label: 'Skip',
-                        selected: _isVeg == null,
-                        onTap: () => setState(() => _isVeg = null),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  _textField(
-                    controller: _noteController,
-                    label: 'Note',
-                    hint: 'Anything helpful about this item...',
-                    maxLines: 4,
-                  ),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 10,
+                      children: [
+                        _choicePill(
+                          label: 'Veg',
+                          selected: _isVeg == true,
+                          onTap: () => setState(() => _isVeg = true),
+                        ),
+                        _choicePill(
+                          label: 'Non-veg',
+                          selected: _isVeg == false,
+                          onTap: () => setState(() => _isVeg = false),
+                        ),
+                        _choicePill(
+                          label: 'Skip',
+                          selected: _isVeg == null,
+                          onTap: () => setState(() => _isVeg = null),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    _textField(
+                      controller: _noteController,
+                      label: 'Note',
+                      hint: 'Anything helpful about this item...',
+                      maxLines: 4,
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 16),
               _sectionCard(
                 title: 'Location (optional)',
                 subtitle:
-                'You can use current location or enter city/area manually. Coordinates help nearby discovery.',
+                'Use current location or enter coordinates only if available.',
                 children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _useCurrentLocation,
-                      icon: const Icon(Icons.my_location_rounded),
-                      label: const Text(
-                        'Use Current Location',
-                        style: TextStyle(fontWeight: FontWeight.w700),
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _showLocationSection = !_showLocationSection;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: AppTheme.fog,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppTheme.silver),
                       ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.accent,
-                        side: const BorderSide(color: AppTheme.accent),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _showLocationSection
+                                ? Icons.expand_less_rounded
+                                : Icons.expand_more_rounded,
+                            color: AppTheme.ink,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _showLocationSection
+                                  ? 'Hide location fields'
+                                  : 'Add location details',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.ink,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _textField(
-                          controller: _latitudeController,
-                          label: 'Latitude',
-                          hint: '23.0339',
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                            signed: true,
+                  if (_showLocationSection) ...[
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _useCurrentLocation,
+                        icon: const Icon(Icons.my_location_rounded),
+                        label: const Text(
+                          'Use Current Location',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.accent,
+                          side: const BorderSide(color: AppTheme.accent),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _textField(
-                          controller: _longitudeController,
-                          label: 'Longitude',
-                          hint: '72.5850',
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                            signed: true,
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _textField(
+                            controller: _latitudeController,
+                            label: 'Latitude',
+                            hint: '23.0339',
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                              signed: true,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _textField(
+                            controller: _longitudeController,
+                            label: 'Longitude',
+                            hint: '72.5850',
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                              signed: true,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ],

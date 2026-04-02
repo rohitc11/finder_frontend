@@ -78,7 +78,6 @@ class _ProfileTabState extends State<ProfileTab> {
             slivers: [
               SliverToBoxAdapter(child: _buildTop(context, _user!)),
               SliverToBoxAdapter(child: _buildStats(_user!)),
-              SliverToBoxAdapter(child: _buildRewardsCard(context)),
               SliverToBoxAdapter(child: _buildAddItemCard(context)),
               SliverToBoxAdapter(child: _buildImpactSection(context, _user!)),
               SliverToBoxAdapter(child: _buildMenu()),
@@ -223,73 +222,6 @@ class _ProfileTabState extends State<ProfileTab> {
               AppTheme.accent,
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  /// Builds rewards card.
-  ///
-  /// Values are placeholders for now and can later come from backend.
-  Widget _buildRewardsCard(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-      child: InkWell(
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const MyContributionsScreen()),
-          );
-        },
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: AppTheme.ink,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Rewards',
-                style: TextStyle(
-                  color: AppTheme.snow,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  const Icon(
-                    Icons.workspace_premium_rounded,
-                    color: AppTheme.accent,
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    '${_user?.totalReviewsGiven ?? 0}+ activity',
-                    style: const TextStyle(
-                      color: AppTheme.snow,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const Spacer(),
-                  const Icon(
-                    Icons.chevron_right_rounded,
-                    color: AppTheme.snow,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Open contributions to track approved suggestions and reward points.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppTheme.snow.withValues(alpha: 0.75),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
