@@ -1,0 +1,557 @@
+import 'package:flutter/material.dart';
+
+import '../../config/user_session.dart';
+import '../../services/contribution_service.dart';
+import '../../theme/app_theme.dart';
+
+class SuggestItemScreen extends StatefulWidget {
+  final String initialItemName;
+  final String initialCity;
+  final String initialAreaName;
+  final double? initialLatitude;
+  final double? initialLongitude;
+
+  const SuggestItemScreen({
+    super.key,
+    this.initialItemName = '',
+    this.initialCity = '',
+    this.initialAreaName = '',
+    this.initialLatitude,
+    this.initialLongitude,
+  });
+
+  @override
+  State<SuggestItemScreen> createState() => _SuggestItemScreenState();
+}
+
+class _SuggestItemScreenState extends State<SuggestItemScreen> {
+  final ContributionService _contributionService = ContributionService();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+  late final TextEditingController _itemController;
+  late final TextEditingController _restaurantController;
+  late final TextEditingController _cityController;
+  late final TextEditingController _areaController;
+  late final TextEditingController _categoryController;
+  late final TextEditingController _subCategoryController;
+  late final TextEditingController _priceController;
+  late final TextEditingController _currencyController;
+  late final TextEditingController _noteController;
+  late final TextEditingController _latitudeController;
+  late final TextEditingController _longitudeController;
+
+  bool? _isVeg;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _itemController = TextEditingController(text: widget.initialItemName);
+    _restaurantController = TextEditingController();
+    _cityController = TextEditingController(text: widget.initialCity);
+    _areaController = TextEditingController(text: widget.initialAreaName);
+    _categoryController = TextEditingController();
+    _subCategoryController = TextEditingController();
+    _priceController = TextEditingController();
+    _currencyController = TextEditingController(text: 'INR');
+    _noteController = TextEditingController();
+    _latitudeController = TextEditingController(
+      text: widget.initialLatitude?.toString() ?? '',
+    );
+    _longitudeController = TextEditingController(
+      text: widget.initialLongitude?.toString() ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _itemController.dispose();
+    _restaurantController.dispose();
+    _cityController.dispose();
+    _areaController.dispose();
+    _categoryController.dispose();
+    _subCategoryController.dispose();
+    _priceController.dispose();
+    _currencyController.dispose();
+    _noteController.dispose();
+    _latitudeController.dispose();
+    _longitudeController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final valid = _formKey.currentState?.validate() ?? false;
+    if (!valid || _isSubmitting) return;
+
+    final lat = _tryParseDouble(_latitudeController.text);
+    final lng = _tryParseDouble(_longitudeController.text);
+
+    if ((lat == null) != (lng == null)) {
+      _showSnack('Please provide both latitude and longitude together.');
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      await _contributionService.submitSuggestion(
+        userId: UserSession.userId,
+        itemName: _itemController.text,
+        restaurantName: _restaurantController.text,
+        city: _cityController.text,
+        areaName: _areaController.text,
+        category: _categoryController.text,
+        subCategory: _subCategoryController.text,
+        price: _tryParseDouble(_priceController.text),
+        currency: _currencyController.text,
+        isVeg: _isVeg,
+        note: _noteController.text,
+        latitude: lat,
+        longitude: lng,
+      );
+
+      if (!mounted) return;
+
+      _showSnack('Suggestion submitted successfully.');
+      Navigator.of(context).pop(true);
+    } catch (_) {
+      if (!mounted) return;
+      _showSnack('Could not submit suggestion. Please try again.');
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  double? _tryParseDouble(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return null;
+    return double.tryParse(trimmed);
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.fog,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: AppTheme.fog,
+        foregroundColor: AppTheme.ink,
+        title: const Text(
+          'Suggest an item',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+        child: SizedBox(
+          height: 54,
+          child: ElevatedButton(
+            onPressed: _isSubmitting ? null : _submit,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.accent,
+              foregroundColor: AppTheme.snow,
+              disabledBackgroundColor: AppTheme.pebble,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: _isSubmitting
+                ? const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppTheme.snow,
+              ),
+            )
+                : const Text(
+              'Submit suggestion',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+              ),
+            ),
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            physics: const BouncingScrollPhysics(),
+            children: [
+              _buildHeroCard(),
+              const SizedBox(height: 18),
+              _sectionCard(
+                title: 'Basic details',
+                children: [
+                  _textField(
+                    controller: _itemController,
+                    label: 'Item name',
+                    hint: 'Example: Cheese Dabeli',
+                    validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Enter item name' : null,
+                  ),
+                  const SizedBox(height: 14),
+                  _textField(
+                    controller: _restaurantController,
+                    label: 'Restaurant name',
+                    hint: 'Example: Jay Bhavani',
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Enter restaurant name'
+                        : null,
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _textField(
+                          controller: _cityController,
+                          label: 'City',
+                          hint: 'Ahmedabad',
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? 'Enter city'
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _textField(
+                          controller: _areaController,
+                          label: 'Area',
+                          hint: 'Navrangpura',
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? 'Enter area'
+                              : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _sectionCard(
+                title: 'Optional details',
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _textField(
+                          controller: _categoryController,
+                          label: 'Category',
+                          hint: 'Street Food',
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _textField(
+                          controller: _subCategoryController,
+                          label: 'Sub-category',
+                          hint: 'Snacks',
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: _textField(
+                          controller: _priceController,
+                          label: 'Price',
+                          hint: '80',
+                          keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _textField(
+                          controller: _currencyController,
+                          label: 'Currency',
+                          hint: 'INR',
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Food type',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 10,
+                    children: [
+                      _choicePill(
+                        label: 'Veg',
+                        selected: _isVeg == true,
+                        onTap: () => setState(() => _isVeg = true),
+                      ),
+                      _choicePill(
+                        label: 'Non-veg',
+                        selected: _isVeg == false,
+                        onTap: () => setState(() => _isVeg = false),
+                      ),
+                      _choicePill(
+                        label: 'Skip',
+                        selected: _isVeg == null,
+                        onTap: () => setState(() => _isVeg = null),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  _textField(
+                    controller: _noteController,
+                    label: 'Note',
+                    hint: 'Anything helpful about this item...',
+                    maxLines: 4,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _sectionCard(
+                title: 'Location coordinates (optional)',
+                subtitle:
+                'Add only if available. Helps future nearby discovery.',
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _textField(
+                          controller: _latitudeController,
+                          label: 'Latitude',
+                          hint: '23.0339',
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                            signed: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _textField(
+                          controller: _longitudeController,
+                          label: 'Longitude',
+                          hint: '72.5850',
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                            signed: true,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroCard() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppTheme.snow,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: AppTheme.shadowSm,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: AppTheme.accentDim,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(
+              Icons.lightbulb_rounded,
+              color: AppTheme.accent,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Help improve Finder',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.ink,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Suggest missing food items and earn reward points once approved.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppTheme.stone,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionCard({
+    required String title,
+    String? subtitle,
+    required List<Widget> children,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppTheme.snow,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: AppTheme.shadowXs,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.ink,
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.stone,
+                height: 1.45,
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _choicePill({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? AppTheme.ink : AppTheme.fog,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected ? AppTheme.ink : AppTheme.silver,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? AppTheme.snow : AppTheme.ink,
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _textField({
+    required TextEditingController controller,
+    required String label,
+    String hint = '',
+    String? Function(String?)? validator,
+    TextInputType? keyboardType,
+    int maxLines = 1,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.ink,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          validator: validator,
+          keyboardType: keyboardType,
+          maxLines: maxLines,
+          textInputAction:
+          maxLines == 1 ? TextInputAction.next : TextInputAction.newline,
+          decoration: InputDecoration(
+            hintText: hint,
+            filled: true,
+            fillColor: AppTheme.fog,
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: maxLines == 1 ? 14 : 16,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(
+                color: AppTheme.accent,
+                width: 1.4,
+              ),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(
+                color: AppTheme.error,
+                width: 1.2,
+              ),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(
+                color: AppTheme.error,
+                width: 1.2,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

@@ -3,6 +3,8 @@ import '../../models/user_model.dart';
 import '../../services/user_service.dart';
 import '../../theme/app_theme.dart';
 import '../../config/user_session.dart';
+import '../contributions/my_contributions_screen.dart';
+import '../contributions/suggest_item_screen.dart';
 
 /// Profile tab of the application.
 ///
@@ -77,6 +79,7 @@ class _ProfileTabState extends State<ProfileTab> {
               SliverToBoxAdapter(child: _buildTop(context, _user!)),
               SliverToBoxAdapter(child: _buildStats(_user!)),
               SliverToBoxAdapter(child: _buildRewardsCard(context)),
+              SliverToBoxAdapter(child: _buildAddItemCard(context)),
               SliverToBoxAdapter(child: _buildImpactSection(context, _user!)),
               SliverToBoxAdapter(child: _buildMenu()),
               SliverToBoxAdapter(child: _buildFooter()),
@@ -231,56 +234,62 @@ class _ProfileTabState extends State<ProfileTab> {
   Widget _buildRewardsCard(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: AppTheme.ink,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Rewards',
-              style: TextStyle(
-                color: AppTheme.snow,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Icon(
-                  Icons.workspace_premium_rounded,
-                  color: AppTheme.accent,
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const MyContributionsScreen()),
+          );
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: AppTheme.ink,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Rewards',
+                style: TextStyle(
+                  color: AppTheme.snow,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
                 ),
-                const SizedBox(width: 10),
-                const Text(
-                  '30 points',
-                  style: TextStyle(
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.workspace_premium_rounded,
+                    color: AppTheme.accent,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    '${_user?.totalReviewsGiven ?? 0}+ activity',
+                    style: const TextStyle(
+                      color: AppTheme.snow,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const Spacer(),
+                  const Icon(
+                    Icons.chevron_right_rounded,
                     color: AppTheme.snow,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
                   ),
-                ),
-                const Spacer(),
-                Text(
-                  '100 to claim',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.snow.withValues(alpha: 0.75),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Earn 10 points for every approved food suggestion.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppTheme.snow.withValues(alpha: 0.75),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              Text(
+                'Open contributions to track approved suggestions and reward points.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppTheme.snow.withValues(alpha: 0.75),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -320,13 +329,17 @@ class _ProfileTabState extends State<ProfileTab> {
     );
   }
 
-  /// Builds menu section for profile actions.
+  /// Builds the profile menu section.
+  ///
+  /// Notes:
+  /// - "Add Item" is intentionally given a separate highlighted card above.
+  /// - "My Contributions" remains here so users can track suggestion history.
+  /// - Other items can stay as they are and be wired later.
   Widget _buildMenu() {
     final items = [
+      _MenuItem('My Contributions', Icons.lightbulb_rounded, AppTheme.accent),
       _MenuItem('Bucket List', Icons.bookmark_rounded, const Color(0xFF5E5CE6)),
       _MenuItem('My Reviews', Icons.star_rounded, const Color(0xFFFF9F0A)),
-      _MenuItem('My Suggestions', Icons.lightbulb_rounded, AppTheme.accent),
-      _MenuItem('Rewards', Icons.card_giftcard_rounded, const Color(0xFF34C759)),
       _MenuItem('Settings', Icons.settings_rounded, AppTheme.slate),
     ];
 
@@ -346,18 +359,33 @@ class _ProfileTabState extends State<ProfileTab> {
             return Column(
               children: [
                 InkWell(
-                  onTap: () {},
+                  onTap: () async {
+                    if (item.label == 'My Contributions') {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const MyContributionsScreen(),
+                        ),
+                      );
+
+                      // Refresh profile after returning from contributions screen.
+                      _loadUser();
+                    }
+
+                    // Other menu items can be wired later.
+                  },
                   borderRadius: BorderRadius.circular(16),
                   child: Padding(
-                    padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 15,
+                    ),
                     child: Row(
                       children: [
                         Container(
                           width: 38,
                           height: 38,
                           decoration: BoxDecoration(
-                            color: item.color.withValues(alpha: 0.1),
+                            color: item.color.withOpacity(0.10),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(item.icon, size: 18, color: item.color),
@@ -387,7 +415,7 @@ class _ProfileTabState extends State<ProfileTab> {
                     height: 1,
                     indent: 70,
                     endIndent: 18,
-                    color: AppTheme.silver.withValues(alpha: 0.5),
+                    color: AppTheme.silver.withOpacity(0.5),
                   ),
               ],
             );
@@ -502,6 +530,88 @@ class _ProfileTabState extends State<ProfileTab> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Builds the primary contribution call-to-action card shown on the profile tab.
+  ///
+  /// Why this exists:
+  /// - For a new launch, contribution must be highly visible.
+  /// - Users should not need to search inside menus to add a missing item.
+  /// - This card gives a clear entry point for crowd-sourcing.
+  Widget _buildAddItemCard(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      child: InkWell(
+        onTap: () async {
+          final bool? created = await Navigator.of(context).push<bool>(
+            MaterialPageRoute(
+              builder: (_) => const SuggestItemScreen(),
+            ),
+          );
+
+          // Refresh profile once the user returns after a successful submission.
+          if (created == true) {
+            _loadUser();
+          }
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: AppTheme.accent,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: AppTheme.shadowSm,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.16),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.add_circle_rounded,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Add Item',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Help others discover food near you',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -18,6 +18,15 @@ class ApiConfig {
   /// Search suggestion endpoint.
   static const String suggestionsEndpoint = '$baseUrl/search/suggestions';
 
+  /// Suggestion / contribution endpoints.
+  static const String contributionSuggestionsEndpoint = '$baseUrl/suggestions';
+
+  static String userSuggestionsEndpoint(String userId) =>
+      '$baseUrl/suggestions/user/$userId';
+
+  static String userSummaryEndpoint(String userId) =>
+      '$baseUrl/users/$userId/summary';
+
   /// Smart search endpoint.
   static const String smartSearchEndpoint = '$baseUrl/search/items/smart';
 
