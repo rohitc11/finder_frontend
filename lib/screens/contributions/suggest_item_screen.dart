@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../config/user_session.dart';
 import '../../services/contribution_service.dart';
 import '../../theme/app_theme.dart';
+import '../../services/location_service.dart';
 
 class SuggestItemScreen extends StatefulWidget {
   final String initialItemName;
@@ -134,6 +135,50 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
+  }
+
+  /// Uses device current location to auto-fill:
+  /// - latitude
+  /// - longitude
+  /// - city
+  /// - area
+  ///
+  /// UX decision:
+  /// - city/area remain editable even after auto-fill
+  /// - reverse geocoding failure should not block coordinate fill
+  Future<void> _useCurrentLocation() async {
+    if (_isSubmitting) return;
+
+    try {
+      final AppLocationResult? location =
+      await LocationService.getCurrentLocationWithAddress();
+
+      if (location == null) {
+        _showSnack(
+          'Current location is unavailable. You can still enter city and area manually.',
+        );
+        return;
+      }
+
+      setState(() {
+        _latitudeController.text = location.latitude.toStringAsFixed(6);
+        _longitudeController.text = location.longitude.toStringAsFixed(6);
+
+        if ((location.city ?? '').trim().isNotEmpty) {
+          _cityController.text = location.city!.trim();
+        }
+
+        if ((location.areaName ?? '').trim().isNotEmpty) {
+          _areaController.text = location.areaName!.trim();
+        }
+      });
+
+      _showSnack('Current location added.');
+    } catch (_) {
+      _showSnack(
+        'Could not fetch current location. Please try again or enter manually.',
+      );
+    }
   }
 
   @override
@@ -324,10 +369,30 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
               ),
               const SizedBox(height: 16),
               _sectionCard(
-                title: 'Location coordinates (optional)',
+                title: 'Location (optional)',
                 subtitle:
-                'Add only if available. Helps future nearby discovery.',
+                'You can use current location or enter city/area manually. Coordinates help nearby discovery.',
                 children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _useCurrentLocation,
+                      icon: const Icon(Icons.my_location_rounded),
+                      label: const Text(
+                        'Use Current Location',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.accent,
+                        side: const BorderSide(color: AppTheme.accent),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
                   Row(
                     children: [
                       Expanded(

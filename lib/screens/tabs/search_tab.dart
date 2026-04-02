@@ -8,6 +8,7 @@ import '../../services/search_service.dart';
 import '../../services/bucket_list_service.dart';
 import '../../config/user_session.dart';
 import '../item_detail_screen.dart';
+import '../../services/location_service.dart';
 
 /// Search tab of the application.
 ///
@@ -215,11 +216,15 @@ class _SearchTabState extends State<SearchTab> {
 
   /// Executes smart search using backend.
   ///
+  /// Behavior:
+  /// - regular queries -> normal smart search
+  /// - near-me intent -> request location only when needed
+  /// - if location is unavailable for near-me search, show a message and stop
+  ///
   /// Backend endpoint:
   /// GET /search/items/smart?query=...
   Future<void> _performSearch(String query) async {
-    final trimmedQuery = query.trim();
-
+    final String trimmedQuery = query.trim();
     if (trimmedQuery.isEmpty) return;
 
     _debounce?.cancel();
@@ -233,9 +238,44 @@ class _SearchTabState extends State<SearchTab> {
     });
 
     try {
-      final results = await _searchService.fetchSmartSearch(
+      double? latitude;
+      double? longitude;
+
+      // Ask for location only when the query clearly expresses a near-me intent.
+      if (LocationService.hasNearMeIntent(trimmedQuery)) {
+        final AppLocationResult? location =
+        await LocationService.getCurrentLocationWithAddress();
+
+        // User denied permission or location service is unavailable.
+        if (location == null) {
+          if (!mounted) return;
+
+          setState(() {
+            _results = [];
+            _isLoading = false;
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Please enable current location for nearby search, or search by city/area.',
+              ),
+            ),
+          );
+          return;
+        }
+
+        latitude = location.latitude;
+        longitude = location.longitude;
+      }
+
+      final List<SearchResultModel> results =
+      await _searchService.fetchSmartSearch(
         query: trimmedQuery,
         userId: UserSession.userId,
+        latitude: latitude,
+        longitude: longitude,
+        radiusInKm: 5.0,
       );
 
       if (!mounted) return;
@@ -251,6 +291,12 @@ class _SearchTabState extends State<SearchTab> {
         _results = [];
         _isLoading = false;
       });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not complete search. Please try again.'),
+        ),
+      );
     }
   }
 
