@@ -13,6 +13,7 @@ import '../contributions/my_contributions_screen.dart';
 import '../contributions/suggest_item_screen.dart';
 import '../home_screen.dart';
 import 'saved_tab.dart';
+import '../saved/bucket_list_page.dart';
 
 /// Profile tab.
 ///
@@ -230,14 +231,46 @@ class _ProfileTabState extends State<ProfileTab> {
                 ),
               ),
               const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(child: _guestStatCard('Bucket List', '0')),
-                  const SizedBox(width: 12),
-                  Expanded(child: _guestStatCard('Reviews', '0')),
-                  const SizedBox(width: 12),
-                  Expanded(child: _guestStatCard('Contributions', '0')),
-                ],
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: AppTheme.snow,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: AppTheme.shadowSm,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _topStatTile(
+                        icon: Icons.bookmark_rounded,
+                        iconBg: const Color(0xFFEDEBFF),
+                        iconColor: const Color(0xFF6C63FF),
+                        value: '0',
+                        label: 'Bucket List',
+                      ),
+                    ),
+                    _verticalDivider(),
+                    Expanded(
+                      child: _topStatTile(
+                        icon: Icons.star_rounded,
+                        iconBg: const Color(0xFFFFF2E2),
+                        iconColor: const Color(0xFFF5A623),
+                        value: '0',
+                        label: 'Reviews',
+                      ),
+                    ),
+                    _verticalDivider(),
+                    Expanded(
+                      child: _topStatTile(
+                        icon: Icons.lightbulb_rounded,
+                        iconBg: const Color(0xFFFFEEE9),
+                        iconColor: AppTheme.accent,
+                        value: '0',
+                        label: 'Contributions',
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 18),
               InkWell(
@@ -620,7 +653,7 @@ class _ProfileTabState extends State<ProfileTab> {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => const MyContributionsScreen(),
+                  builder: (_) => const BucketListPage(),
                 ),
               );
             },
@@ -634,7 +667,7 @@ class _ProfileTabState extends State<ProfileTab> {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => const SavedTab(),
+                  builder: (_) => const BucketListPage(),
                 ),
               );
             },
@@ -720,39 +753,6 @@ class _ProfileTabState extends State<ProfileTab> {
             borderRadius: BorderRadius.circular(14),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _guestStatCard(String label, String value) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.snow,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: AppTheme.shadowXs,
-      ),
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: AppTheme.ink,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppTheme.stone,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
       ),
     );
   }

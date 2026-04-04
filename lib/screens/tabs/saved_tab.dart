@@ -9,7 +9,12 @@ import '../auth/login_screen.dart';
 import '../item_detail_screen.dart';
 
 class SavedTab extends StatefulWidget {
-  const SavedTab({super.key});
+  final bool showInternalHeader;
+
+  const SavedTab({
+    super.key,
+    this.showInternalHeader = true,
+  });
 
   @override
   State<SavedTab> createState() => SavedTabState();
@@ -131,7 +136,7 @@ class SavedTabState extends State<SavedTab> {
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(context),
+            if (widget.showInternalHeader) _buildHeader(context),
             Expanded(
               child: _buildBody(context),
             ),
@@ -168,8 +173,8 @@ class SavedTabState extends State<SavedTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(context),
-              const SizedBox(height: 12),
+              if (widget.showInternalHeader) _buildHeader(context),
+              if (widget.showInternalHeader) const SizedBox(height: 12),
               const Text(
                 'Preview how your saved items will look after login.',
                 style: TextStyle(
@@ -300,7 +305,7 @@ class SavedTabState extends State<SavedTab> {
 
   Widget _buildHeader(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 0, 0, 12),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
       child: Row(
         children: [
           Text(
