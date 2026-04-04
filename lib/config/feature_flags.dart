@@ -10,5 +10,5 @@ class FeatureFlags {
   /// Important:
   /// - when false, only reward UI is hidden
   /// - contribution history and counters should still remain visible
-  static const bool isRewardsEnabled = false;
+  static const bool isRewardsEnabled = true;
 }

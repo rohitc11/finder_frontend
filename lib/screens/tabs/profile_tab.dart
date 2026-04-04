@@ -14,6 +14,7 @@ import '../contributions/suggest_item_screen.dart';
 import '../home_screen.dart';
 import 'saved_tab.dart';
 import '../saved/bucket_list_page.dart';
+import '../admin/pending_suggestions_screen.dart';
 
 /// Profile tab.
 ///
@@ -653,7 +654,7 @@ class _ProfileTabState extends State<ProfileTab> {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => const BucketListPage(),
+                  builder: (_) => const MyContributionsScreen(),
                 ),
               );
             },
@@ -686,6 +687,24 @@ class _ProfileTabState extends State<ProfileTab> {
               );
             },
           ),
+
+          /// Show admin-only moderation entry.
+          if ((UserSession.role ?? '').toUpperCase() == 'ADMIN') ...[
+            _divider(),
+            _menuTile(
+              icon: Icons.admin_panel_settings_rounded,
+              iconBg: const Color(0xFFEAF4FF),
+              iconColor: const Color(0xFF1565C0),
+              title: 'Review Items',
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const PendingSuggestionsScreen(),
+                  ),
+                );
+              },
+            ),
+          ],
         ],
       ),
     );
