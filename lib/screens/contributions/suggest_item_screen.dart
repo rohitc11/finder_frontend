@@ -107,7 +107,6 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
 
     try {
       await _contributionService.submitSuggestion(
-        userId: UserSession.userId,
         itemName: _itemController.text,
         restaurantName: _restaurantController.text,
         city: _cityController.text,

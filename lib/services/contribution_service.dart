@@ -3,38 +3,57 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+import '../config/user_session.dart';
 import '../models/user_profile_summary_model.dart';
 import '../models/user_suggestion_model.dart';
 
+/// Service responsible for contribution-related APIs.
+///
+/// Auth rule:
+/// - current logged-in user is derived from JWT on backend
+/// - frontend should not send raw userId for "my" APIs
 class ContributionService {
-  Future<UserProfileSummaryModel> fetchUserSummary(String userId) async {
-    final uri = Uri.parse(ApiConfig.userSummaryEndpoint(userId));
-    final response = await http.get(uri);
+  /// Fetches current user's contribution summary.
+  Future<UserProfileSummaryModel> fetchUserSummary() async {
+    final uri = Uri.parse(ApiConfig.currentUserSummaryEndpoint);
+    final response = await http.get(
+      uri,
+      headers: {
+        ...UserSession.authHeaders,
+      },
+    );
 
     if (response.statusCode != 200) {
       throw Exception('Failed to load contribution summary');
     }
 
-    final Map<String, dynamic> data = jsonDecode(response.body);
+    final Map<String, dynamic> data =
+    jsonDecode(response.body) as Map<String, dynamic>;
     return UserProfileSummaryModel.fromJson(data);
   }
 
-  Future<List<UserSuggestionModel>> fetchUserSuggestions(String userId) async {
-    final uri = Uri.parse(ApiConfig.userSuggestionsEndpoint(userId));
-    final response = await http.get(uri);
+  /// Fetches current user's suggestions.
+  Future<List<UserSuggestionModel>> fetchUserSuggestions() async {
+    final uri = Uri.parse(ApiConfig.mySuggestionsEndpoint);
+    final response = await http.get(
+      uri,
+      headers: {
+        ...UserSession.authHeaders,
+      },
+    );
 
     if (response.statusCode != 200) {
       throw Exception('Failed to load user suggestions');
     }
 
-    final List<dynamic> data = jsonDecode(response.body);
+    final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
     return data
         .map((e) => UserSuggestionModel.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 
+  /// Submits a new suggestion for current logged-in user.
   Future<void> submitSuggestion({
-    required String userId,
     required String itemName,
     required String restaurantName,
     required String city,
@@ -51,7 +70,6 @@ class ContributionService {
     final uri = Uri.parse(ApiConfig.contributionSuggestionsEndpoint);
 
     final body = <String, dynamic>{
-      'userId': userId,
       'itemName': itemName.trim(),
       'restaurantName': restaurantName.trim(),
       'city': city.trim(),
@@ -68,7 +86,10 @@ class ContributionService {
 
     final response = await http.post(
       uri,
-      headers: const {'Content-Type': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        ...UserSession.authHeaders,
+      },
       body: jsonEncode(body),
     );
 

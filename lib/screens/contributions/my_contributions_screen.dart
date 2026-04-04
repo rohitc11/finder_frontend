@@ -39,8 +39,8 @@ class _MyContributionsScreenState extends State<MyContributionsScreen> {
 
     try {
       final results = await Future.wait([
-        _contributionService.fetchUserSummary(UserSession.userId),
-        _contributionService.fetchUserSuggestions(UserSession.userId),
+        _contributionService.fetchUserSummary(),
+        _contributionService.fetchUserSuggestions(),
       ]);
 
       if (!mounted) return;

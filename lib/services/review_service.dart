@@ -3,15 +3,12 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+import '../config/user_session.dart';
 import '../models/review_model.dart';
 
 /// Service responsible for review-related backend APIs.
-///
-/// Current launch scope:
-/// - add review for item
-/// - fetch reviews for item
 class ReviewService {
-  /// Fetches all reviews for a given item.
+  /// Fetch reviews for one item.
   Future<List<ReviewModel>> fetchReviewsByItem(String itemId) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/reviews/item/$itemId');
     final response = await http.get(uri);
@@ -20,16 +17,14 @@ class ReviewService {
       throw Exception('Failed to load item reviews');
     }
 
-    final List<dynamic> data = jsonDecode(response.body);
+    final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
     return data
         .map((e) => ReviewModel.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 
-  /// Adds a new review for an item.
+  /// Add review for current logged-in user.
   Future<void> addItemReview({
-    required String userId,
-    required String userName,
     required String itemId,
     required int rating,
     String? comment,
@@ -37,8 +32,6 @@ class ReviewService {
     final uri = Uri.parse('${ApiConfig.baseUrl}/reviews/item');
 
     final payload = <String, dynamic>{
-      'userId': userId,
-      'userName': userName,
       'itemId': itemId,
       'rating': rating,
       'comment': (comment ?? '').trim().isEmpty ? null : comment!.trim(),
@@ -46,7 +39,10 @@ class ReviewService {
 
     final response = await http.post(
       uri,
-      headers: const {'Content-Type': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        ...UserSession.authHeaders,
+      },
       body: jsonEncode(payload),
     );
 

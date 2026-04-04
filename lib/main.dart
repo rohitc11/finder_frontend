@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'theme/app_theme.dart';
-import 'screens/home_screen.dart';
 
-void main() {
+import 'config/user_session.dart';
+import 'screens/home_screen.dart';
+import 'theme/app_theme.dart';
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await UserSession.init();
+
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -14,6 +19,7 @@ void main() {
       systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
+
   runApp(const FinderApp());
 }
 

@@ -111,8 +111,6 @@ class _WriteReviewBottomSheetState extends State<WriteReviewBottomSheet> {
 
     try {
       await _reviewService.addItemReview(
-        userId: UserSession.userId,
-        userName: widget.user.name,
         itemId: widget.itemId,
         rating: _selectedRating,
         comment: _commentController.text,

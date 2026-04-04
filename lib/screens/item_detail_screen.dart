@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
-import '../models/item_model.dart';
-import '../models/search_result_model.dart';
-import '../services/item_service.dart';
-import '../theme/app_theme.dart';
+import 'package:share_plus/share_plus.dart';
+
 import '../config/user_session.dart';
+import '../models/item_model.dart';
 import '../models/review_model.dart';
+import '../models/search_result_model.dart';
 import '../models/user_model.dart';
+import '../services/item_service.dart';
 import '../services/review_service.dart';
 import '../services/user_service.dart';
+import '../theme/app_theme.dart';
+import 'auth/login_screen.dart';
 import 'reviews/write_review_bottom_sheet.dart';
-import 'package:share_plus/share_plus.dart';
 
 /// Item detail screen.
 ///
@@ -17,7 +19,7 @@ import 'package:share_plus/share_plus.dart';
 /// - show a rich detail view for a selected food item
 /// - use search result summary immediately
 /// - fetch full item details from backend for richer UI
-/// - act as future home for reviews and contribution info
+/// - act as home for reviews and contribution info
 class ItemDetailScreen extends StatefulWidget {
   final SearchResultModel summary;
 
@@ -31,34 +33,20 @@ class ItemDetailScreen extends StatefulWidget {
 }
 
 class _ItemDetailScreenState extends State<ItemDetailScreen> {
-  /// Service used to fetch full item details.
   final ItemService _itemService = ItemService();
-
-  /// Service used to fetch reviews for this item.
   final ReviewService _reviewService = ReviewService();
-
-  /// Service used to fetch current user details for review submission.
   final UserService _userService = UserService();
 
-  /// Current active user loaded for review submission.
   UserModel? _currentUser;
-
-  /// Recent reviews loaded for this item.
   List<ReviewModel> _reviews = [];
 
-  /// Loading state for review fetch.
   bool _isReviewsLoading = true;
-
-  /// Full item detail loaded from backend.
-  ItemModel? _item;
-
-  /// Loading state for detail fetch.
   bool _isLoading = true;
 
-  /// Returns true if the current active user has already reviewed this item.
+  ItemModel? _item;
+
   bool get _hasCurrentUserReviewed {
     if (_currentUser == null) return false;
-
     return _reviews.any((review) => review.userId == _currentUser!.id);
   }
 
@@ -68,12 +56,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     _loadInitialData();
   }
 
-  /// Loads all initial data needed for item detail screen.
-  ///
-  /// This keeps launch UI simple:
-  /// - item detail
-  /// - current user
-  /// - recent reviews
   Future<void> _loadInitialData() async {
     await Future.wait([
       _loadItemDetail(),
@@ -82,24 +64,33 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     ]);
   }
 
-  /// Loads current active user for review submission.
   Future<void> _loadCurrentUser() async {
+    if (!UserSession.isLoggedIn) {
+      if (!mounted) return;
+      setState(() {
+        _currentUser = null;
+      });
+      return;
+    }
+
     try {
-      final user = await _userService.fetchUserById(UserSession.userId);
+      final user = await _userService.fetchCurrentUser();
+
       if (!mounted) return;
       setState(() {
         _currentUser = user;
       });
     } catch (_) {
-      // User load failure should not block item screen rendering.
+      if (!mounted) return;
+      setState(() {
+        _currentUser = null;
+      });
     }
   }
 
-  /// Loads reviews for the selected item.
   Future<void> _loadReviews() async {
     try {
-      final reviews =
-      await _reviewService.fetchReviewsByItem(widget.summary.itemId);
+      final reviews = await _reviewService.fetchReviewsByItem(widget.summary.itemId);
 
       if (!mounted) return;
       setState(() {
@@ -115,12 +106,34 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     }
   }
 
-  /// Opens write-review sheet and refreshes item data + reviews after success.
   Future<void> _openWriteReviewSheet() async {
+    if (!UserSession.isLoggedIn) {
+      final bool? loggedIn = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (_) => const LoginScreen(),
+        ),
+      );
+
+      if (loggedIn == true) {
+        await _loadCurrentUser();
+      } else {
+        return;
+      }
+    }
+
     if (_currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Could not load user details for review.'),
+        ),
+      );
+      return;
+    }
+
+    if (_hasCurrentUserReviewed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You already reviewed this item.'),
         ),
       );
       return;
@@ -156,7 +169,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     }
   }
 
-  /// Loads full item detail from backend.
   Future<void> _loadItemDetail() async {
     setState(() {
       _isLoading = true;
@@ -171,7 +183,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
         _item = item;
         _isLoading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
 
       setState(() {
@@ -181,22 +193,16 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     }
   }
 
-
-  /// Shares the current item using a simple launch-friendly text format.
-  ///
-  /// Why this approach:
-  /// - works immediately without requiring deep-link infrastructure
-  /// - helps users promote the app by sharing standout dishes
-  /// - can later be upgraded to app links / web links
   Future<void> _shareItem() async {
     final itemName = _item?.itemName ?? widget.summary.itemName;
     final restaurantName = _item?.restaurantName ?? widget.summary.restaurantName;
     final areaName = (_item?.areaName ?? widget.summary.areaName).trim();
     final city = (_item?.city ?? widget.summary.city).trim();
 
-    final locationText = [if (areaName.isNotEmpty) areaName, if (city.isNotEmpty) city]
-        .join(', ')
-        .trim();
+    final locationText = [
+      if (areaName.isNotEmpty) areaName,
+      if (city.isNotEmpty) city,
+    ].join(', ').trim();
 
     final rating = _item?.avgItemRating ?? widget.summary.avgItemRating;
 
@@ -258,9 +264,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     );
   }
 
-
-
-  /// Builds the main item detail body.
   Widget _buildBody(BuildContext context, ItemModel? item) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
@@ -293,7 +296,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     );
   }
 
-  /// Builds the main hero card for the item.
   Widget _buildHeroCard(BuildContext context, ItemModel? item) {
     final displayName = item?.itemName ?? widget.summary.itemName;
     final displayRestaurant = item?.restaurantName ?? widget.summary.restaurantName;
@@ -401,9 +403,10 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  [if (displayArea.trim().isNotEmpty) displayArea, if (displayCity.trim().isNotEmpty) displayCity]
-                      .join(', ')
-                      .ifEmpty('Location not available'),
+                  [
+                    if (displayArea.trim().isNotEmpty) displayArea,
+                    if (displayCity.trim().isNotEmpty) displayCity,
+                  ].join(', ').ifEmpty('Location not available'),
                   style: const TextStyle(
                     fontSize: 13,
                     color: AppTheme.pebble,
@@ -418,7 +421,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     );
   }
 
-  /// Builds category/status chips.
   Widget _buildMetaChips(ItemModel? item) {
     final chips = <Widget>[];
 
@@ -453,7 +455,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     );
   }
 
-  /// Builds the main info cards row.
   Widget _buildInfoCards(BuildContext context, ItemModel? item) {
     return Row(
       children: [
@@ -476,12 +477,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     );
   }
 
-  /// Builds location section for the item.
-  ///
-  /// Behavior:
-  /// - if coordinates exist, show area/city and exact lat/lng
-  /// - if location is missing, show a clear fallback message
-  /// - encourages contribution for missing location data
   Widget _buildLocationCard(BuildContext context, ItemModel? item) {
     final String area = (item?.areaName ?? widget.summary.areaName).trim();
     final String city = (item?.city ?? widget.summary.city).trim();
@@ -522,8 +517,10 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                 Expanded(
                   child: Text(
                     hasReadableLocation
-                        ? [if (area.isNotEmpty) area, if (city.isNotEmpty) city]
-                        .join(', ')
+                        ? [
+                      if (area.isNotEmpty) area,
+                      if (city.isNotEmpty) city,
+                    ].join(', ')
                         : 'Coordinates available',
                     style: const TextStyle(
                       fontSize: 14,
@@ -570,7 +567,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     );
   }
 
-  /// Builds one info card.
   Widget _infoCard({
     required String title,
     required String value,
@@ -610,7 +606,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     );
   }
 
-  /// Builds descriptive summary card.
   Widget _buildDescriptionCard(BuildContext context, ItemModel? item) {
     final parts = <String>[];
 
@@ -665,11 +660,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     );
   }
 
-  /// Builds the primary review CTA card.
-  ///
-  /// Behavior:
-  /// - allows review if current user has not reviewed yet
-  /// - shows clear submitted state if review already exists
   Widget _buildWriteReviewCard(BuildContext context) {
     final bool alreadyReviewed = _hasCurrentUserReviewed;
 
@@ -741,7 +731,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     );
   }
 
-  /// Builds recent reviews section for the item.
   Widget _buildReviewsSection(BuildContext context) {
     return Container(
       width: double.infinity,
@@ -784,7 +773,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     );
   }
 
-  /// Builds one review tile.
   Widget _buildReviewTile(ReviewModel review) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -839,7 +827,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     );
   }
 
-  /// Builds loading card shown while full details are being fetched.
   Widget _buildLoadingCard(BuildContext context) {
     return Container(
       width: double.infinity,
@@ -861,7 +848,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
           ),
           const SizedBox(width: 12),
           Text(
-            'Loading more details...',
+            'Loading more details.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: AppTheme.stone,
             ),
@@ -871,7 +858,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     );
   }
 
-  /// Builds error card if full detail request fails.
   Widget _buildErrorCard(BuildContext context) {
     return Container(
       width: double.infinity,
@@ -890,7 +876,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     );
   }
 
-  /// Builds one small meta chip.
   Widget _metaChip(String text, Color bgColor, Color textColor) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -909,7 +894,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     );
   }
 
-  /// Builds formatted price text.
   String _buildPriceText(ItemModel? item) {
     if (item?.price == null) {
       return '-';
@@ -923,7 +907,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   }
 }
 
-/// Small string helper for cleaner UI fallback text.
 extension _StringFallbackExtension on String {
   String ifEmpty(String fallback) {
     return trim().isEmpty ? fallback : this;

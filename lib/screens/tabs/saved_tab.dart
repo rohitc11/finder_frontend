@@ -1,17 +1,13 @@
 import 'package:flutter/material.dart';
+
+import '../../config/user_session.dart';
 import '../../models/bucket_list_item_model.dart';
+import '../../models/search_result_model.dart';
 import '../../services/bucket_list_service.dart';
 import '../../theme/app_theme.dart';
-import '../../config/user_session.dart';
-import '../../models/search_result_model.dart';
+import '../auth/login_screen.dart';
 import '../item_detail_screen.dart';
 
-/// Saved tab showing user's bookmarked items.
-///
-/// Responsibility:
-/// - fetch saved items from backend
-/// - render them in a clean list
-/// - allow removing items from saved list
 class SavedTab extends StatefulWidget {
   const SavedTab({super.key});
 
@@ -20,37 +16,36 @@ class SavedTab extends StatefulWidget {
 }
 
 class SavedTabState extends State<SavedTab> {
-
-  /// Service responsible for bucket-list backend APIs.
   final BucketListService _bucketListService = BucketListService();
 
-  /// Current saved items.
   List<BucketListItemModel> _savedItems = [];
-
-  /// Loading state for initial fetch.
   bool _isLoading = true;
 
-  /// Public refresh method used by parent screen when user opens Bucket List tab.
   void refreshSavedItems() {
-    _loadSavedItems();
+    if (UserSession.isLoggedIn) {
+      _loadSavedItems();
+    } else {
+      setState(() {});
+    }
   }
 
   @override
   void initState() {
     super.initState();
-    _loadSavedItems();
+    if (UserSession.isLoggedIn) {
+      _loadSavedItems();
+    } else {
+      _isLoading = false;
+    }
   }
 
-  /// Loads saved items from backend.
   Future<void> _loadSavedItems() async {
     setState(() {
       _isLoading = true;
     });
 
     try {
-      final items = await _bucketListService.fetchUserBucketList(
-        userId: UserSession.userId,
-      );
+      final items = await _bucketListService.fetchSavedItems();
 
       if (!mounted) return;
 
@@ -58,7 +53,7 @@ class SavedTabState extends State<SavedTab> {
         _savedItems = items;
         _isLoading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
 
       setState(() {
@@ -68,24 +63,30 @@ class SavedTabState extends State<SavedTab> {
     }
   }
 
-  /// Removes one saved item and updates the UI.
+  Future<void> _openLogin() async {
+    final bool? loggedIn = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => const LoginScreen(),
+      ),
+    );
+
+    if (loggedIn == true && mounted) {
+      await _loadSavedItems();
+    }
+  }
+
   Future<void> _removeSavedItem(BucketListItemModel item) async {
     final previousItems = List<BucketListItemModel>.from(_savedItems);
 
-    // Optimistic UI update.
     setState(() {
       _savedItems.removeWhere((element) => element.itemId == item.itemId);
     });
 
     try {
-      await _bucketListService.removeFromBucketList(
-        userId: UserSession.userId,
-        itemId: item.itemId,
-      );
-    } catch (e) {
+      await _bucketListService.removeFromBucketList(item.itemId);
+    } catch (_) {
       if (!mounted) return;
 
-      // Revert if backend fails.
       setState(() {
         _savedItems = previousItems;
       });
@@ -98,10 +99,6 @@ class SavedTabState extends State<SavedTab> {
     }
   }
 
-  /// Opens item detail from a saved/bucket-list item.
-  ///
-  /// Since bucket-list response is lighter than search response, we build a
-  /// minimal SearchResultModel and let ItemDetailScreen fetch full details.
   void _openSavedItemDetail(BucketListItemModel item) {
     final summary = SearchResultModel(
       itemId: item.itemId,
@@ -123,9 +120,12 @@ class SavedTabState extends State<SavedTab> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
+    if (!UserSession.isLoggedIn) {
+      return _buildGuestPreview(context);
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.fog,
       body: SafeArea(
@@ -141,10 +141,166 @@ class SavedTabState extends State<SavedTab> {
     );
   }
 
-  /// Builds the static top header for the saved tab.
+  Widget _buildGuestPreview(BuildContext context) {
+    final previewItems = [
+      const _PreviewBookmark(
+        itemName: 'Cheese Dabeli',
+        areaName: 'Navrangpura',
+        city: 'Ahmedabad',
+      ),
+      const _PreviewBookmark(
+        itemName: 'Pani Puri',
+        areaName: 'Law Garden',
+        city: 'Ahmedabad',
+      ),
+      const _PreviewBookmark(
+        itemName: 'Butter Pav Bhaji',
+        areaName: 'Juhu',
+        city: 'Mumbai',
+      ),
+    ];
+
+    return Scaffold(
+      backgroundColor: AppTheme.fog,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(context),
+              const SizedBox(height: 12),
+              const Text(
+                'Preview how your saved items will look after login.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.stone,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ...previewItems.map(
+                    (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: InkWell(
+                    onTap: _openLogin,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.snow,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: AppTheme.shadowXs,
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              color: AppTheme.offWhite,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(
+                              Icons.restaurant_rounded,
+                              color: AppTheme.ink,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.itemName,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.ink,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${item.areaName}, ${item.city}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.pebble,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.bookmark_rounded,
+                            color: AppTheme.accent,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: AppTheme.snow,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: AppTheme.shadowXs,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Save dishes you want to try',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Login to build your personal bucket list and access it anytime.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.stone,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _openLogin,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.accent,
+                          foregroundColor: AppTheme.snow,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: const Text(
+                          'Login to save items',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeader(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 12),
       child: Row(
         children: [
           Text(
@@ -158,7 +314,6 @@ class SavedTabState extends State<SavedTab> {
     );
   }
 
-  /// Builds body based on current state.
   Widget _buildBody(BuildContext context) {
     if (_isLoading) {
       return _buildLoadingState(context);
@@ -171,7 +326,6 @@ class SavedTabState extends State<SavedTab> {
     return _buildSavedItemsList();
   }
 
-  /// Builds loading state while saved items are fetched.
   Widget _buildLoadingState(BuildContext context) {
     return Center(
       child: Column(
@@ -193,7 +347,6 @@ class SavedTabState extends State<SavedTab> {
     );
   }
 
-  /// Builds empty state when no items are saved yet.
   Widget _buildEmptyState(BuildContext context) {
     return Center(
       child: Padding(
@@ -227,11 +380,6 @@ class SavedTabState extends State<SavedTab> {
     );
   }
 
-  /// Builds saved items list.
-  ///
-  /// Behavior:
-  /// - tap card -> open item detail
-  /// - tap bookmark icon -> remove from bucket list
   Widget _buildSavedItemsList() {
     return RefreshIndicator(
       onRefresh: _loadSavedItems,
@@ -308,4 +456,16 @@ class SavedTabState extends State<SavedTab> {
       ),
     );
   }
+}
+
+class _PreviewBookmark {
+  final String itemName;
+  final String areaName;
+  final String city;
+
+  const _PreviewBookmark({
+    required this.itemName,
+    required this.areaName,
+    required this.city,
+  });
 }

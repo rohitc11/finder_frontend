@@ -1,61 +1,77 @@
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+import '../config/user_session.dart';
 import '../models/bucket_list_item_model.dart';
 
-/// Service responsible for bookmark / bucket-list related backend APIs.
+/// Service responsible for current user's bucket-list APIs.
 ///
-/// Responsibility:
-/// - add item to bucket list
-/// - remove item from bucket list
-/// - fetch saved items for a user
+/// Auth rule:
+/// - backend derives current user from JWT
+/// - frontend should not send userId
 class BucketListService {
-  /// Adds an item to the user's bucket list.
-  Future<void> addToBucketList({
-    required String userId,
-    required String itemId,
-  }) async {
-    final uri = Uri.parse(
-      '${ApiConfig.baseUrl}/bucket-list?userId=$userId&itemId=$itemId',
+  /// Fetch current user's saved items.
+  Future<List<BucketListItemModel>> fetchSavedItems() async {
+    final response = await http.get(
+      Uri.parse(ApiConfig.myBucketListEndpoint),
+      headers: {
+        ...UserSession.authHeaders,
+      },
     );
 
-    final response = await http.post(uri);
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load saved items');
+    }
 
-    if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Failed to add item to bucket list');
+    final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
+    return data
+        .map((e) => BucketListItemModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Add item to current user's bucket list.
+  Future<void> addToBucketList(String itemId) async {
+    final response = await http.post(
+      Uri.parse('${ApiConfig.bucketListEndpoint}?itemId=$itemId'),
+      headers: {
+        ...UserSession.authHeaders,
+      },
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Failed to add bookmark');
     }
   }
 
-  /// Removes an item from the user's bucket list.
-  Future<void> removeFromBucketList({
-    required String userId,
-    required String itemId,
-  }) async {
-    final uri = Uri.parse(
-      '${ApiConfig.baseUrl}/bucket-list?userId=$userId&itemId=$itemId',
+  /// Remove item from current user's bucket list.
+  Future<void> removeFromBucketList(String itemId) async {
+    final response = await http.delete(
+      Uri.parse('${ApiConfig.bucketListEndpoint}?itemId=$itemId'),
+      headers: {
+        ...UserSession.authHeaders,
+      },
     );
 
-    final response = await http.delete(uri);
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to remove item from bucket list');
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Failed to remove bookmark');
     }
   }
 
-  /// Fetches all active saved items for a user.
-  Future<List<BucketListItemModel>> fetchUserBucketList({
-    required String userId,
-  }) async {
-    final uri = Uri.parse('${ApiConfig.baseUrl}/bucket-list/$userId');
-
-    final response = await http.get(uri);
+  /// Check whether current user bookmarked an item.
+  Future<bool> isBookmarked(String itemId) async {
+    final response = await http.get(
+      Uri.parse('${ApiConfig.bucketListCheckEndpoint}?itemId=$itemId'),
+      headers: {
+        ...UserSession.authHeaders,
+      },
+    );
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to load bucket list');
+      return false;
     }
 
-    final List<dynamic> data = jsonDecode(response.body);
-    return data.map((e) => BucketListItemModel.fromJson(e)).toList();
+    return response.body.toLowerCase().contains('true');
   }
 }

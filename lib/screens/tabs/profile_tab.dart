@@ -1,18 +1,26 @@
 import 'package:flutter/material.dart';
+
+import '../../config/user_session.dart';
 import '../../models/user_model.dart';
+import '../../models/user_profile_summary_model.dart';
+import '../../services/auth_service.dart';
+import '../../services/bucket_list_service.dart';
+import '../../services/contribution_service.dart';
 import '../../services/user_service.dart';
 import '../../theme/app_theme.dart';
-import '../../config/user_session.dart';
+import '../auth/login_screen.dart';
 import '../contributions/my_contributions_screen.dart';
 import '../contributions/suggest_item_screen.dart';
+import '../home_screen.dart';
+import 'saved_tab.dart';
 
-/// Profile tab of the application.
+/// Profile tab.
 ///
-/// Responsibility:
-/// - show user identity
-/// - show product-focused stats
-/// - prepare for rewards and contributions
-/// - stay minimal for launch phase
+/// Goals:
+/// - show guest preview when user is not logged in
+/// - show real live counts when user is logged in
+/// - avoid mismatch between profile counts and actual pages
+/// - provide logout option
 class ProfileTab extends StatefulWidget {
   const ProfileTab({super.key});
 
@@ -21,68 +29,285 @@ class ProfileTab extends StatefulWidget {
 }
 
 class _ProfileTabState extends State<ProfileTab> {
-
-  /// Service used to fetch user data from backend.
   final UserService _userService = UserService();
+  final ContributionService _contributionService = ContributionService();
+  final BucketListService _bucketListService = BucketListService();
+  final AuthService _authService = AuthService();
 
-  /// Current user loaded from backend.
   UserModel? _user;
+  UserProfileSummaryModel? _summary;
 
-  /// Loading state for profile API.
+  int _bucketListCount = 0;
+  int _reviewCount = 0;
+  int _contributionCount = 0;
+
   bool _isLoading = true;
 
-  /// Loads profile data from backend.
-  Future<void> _loadUser() async {
+  @override
+  void initState() {
+    super.initState();
+    if (UserSession.isLoggedIn) {
+      _loadProfileData();
+    } else {
+      _isLoading = false;
+    }
+  }
+
+  Future<void> _loadProfileData() async {
     setState(() {
       _isLoading = true;
     });
 
     try {
-      final user = await _userService.fetchUserById(UserSession.userId);
+      final results = await Future.wait([
+        _userService.fetchCurrentUser(),
+        _contributionService.fetchUserSummary(),
+        _bucketListService.fetchSavedItems(),
+      ]);
+
+      final user = results[0] as UserModel;
+      final summary = results[1] as UserProfileSummaryModel;
+      final savedItems = results[2] as List<dynamic>;
 
       if (!mounted) return;
 
       setState(() {
         _user = user;
+        _summary = summary;
+        _bucketListCount = savedItems.length;
+        _reviewCount = user.totalReviewsGiven ?? 0;
+        _contributionCount = summary.totalContributions;
         _isLoading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
 
       setState(() {
         _user = null;
+        _summary = null;
+        _bucketListCount = 0;
+        _reviewCount = 0;
+        _contributionCount = 0;
         _isLoading = false;
       });
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _loadUser();
+  Future<void> _openLoginFromProfile() async {
+    final bool? loggedIn = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => const LoginScreen(),
+      ),
+    );
+
+    if (loggedIn == true && mounted) {
+      await _loadProfileData();
+    }
+  }
+
+  Future<void> _logout() async {
+    await _authService.logout();
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => const HomeScreen(),
+      ),
+          (route) => false,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!UserSession.isLoggedIn) {
+      return _buildGuestProfileView(context);
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.fog,
       body: SafeArea(
         child: _isLoading
-            ? _buildLoadingState(context)
-            : _user == null
-            ? _buildErrorState(context)
+            ? const Center(
+          child: CircularProgressIndicator(
+            color: AppTheme.accent,
+            strokeWidth: 2,
+          ),
+        )
             : RefreshIndicator(
-          onRefresh: _loadUser,
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              SliverToBoxAdapter(child: _buildTop(context, _user!)),
-              SliverToBoxAdapter(child: _buildStats(_user!)),
-              SliverToBoxAdapter(child: _buildAddItemCard(context)),
-              SliverToBoxAdapter(child: _buildImpactSection(context, _user!)),
-              SliverToBoxAdapter(child: _buildMenu()),
-              SliverToBoxAdapter(child: _buildFooter()),
-              const SliverToBoxAdapter(child: SizedBox(height: 120)),
+          onRefresh: _loadProfileData,
+          color: AppTheme.accent,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildProfileHeader(),
+                const SizedBox(height: 18),
+                _buildTopStats(),
+                const SizedBox(height: 18),
+                _buildAddItemCard(context),
+                const SizedBox(height: 18),
+                _buildImpactCard(),
+                const SizedBox(height: 18),
+                _buildMenuCard(context),
+                const SizedBox(height: 18),
+                _buildLogoutButton(),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGuestProfileView(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.fog,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Profile',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: AppTheme.snow,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: AppTheme.shadowSm,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 58,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        color: AppTheme.offWhite,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: const Icon(
+                        Icons.person_rounded,
+                        color: AppTheme.ink,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Guest user',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: AppTheme.ink,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Login to save items, track contributions, and manage your profile.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.stone,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(child: _guestStatCard('Bucket List', '0')),
+                  const SizedBox(width: 12),
+                  Expanded(child: _guestStatCard('Reviews', '0')),
+                  const SizedBox(width: 12),
+                  Expanded(child: _guestStatCard('Contributions', '0')),
+                ],
+              ),
+              const SizedBox(height: 18),
+              InkWell(
+                onTap: _openLoginFromProfile,
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accent,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: AppTheme.shadowSm,
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.add_circle_rounded, color: AppTheme.snow),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Add Item',
+                          style: TextStyle(
+                            color: AppTheme.snow,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      Icon(Icons.chevron_right_rounded, color: AppTheme.snow),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.snow,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: AppTheme.shadowSm,
+                ),
+                child: Column(
+                  children: [
+                    _guestMenuTile('My Contributions'),
+                    _guestDivider(),
+                    _guestMenuTile('Bucket List'),
+                    _guestDivider(),
+                    _guestMenuTile('My Reviews'),
+                    _guestDivider(),
+                    _guestMenuTile('Settings'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _openLoginFromProfile,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.ink,
+                    foregroundColor: AppTheme.snow,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    'Login / Register',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -90,52 +315,111 @@ class _ProfileTabState extends State<ProfileTab> {
     );
   }
 
-  /// Builds profile header with image, name and bio.
-  Widget _buildTop(BuildContext context, UserModel user) {
-    final initials = _buildInitials(user.name);
+  Widget _buildProfileHeader() {
+    final user = _user;
+    final displayName = (user?.name ?? 'User').trim();
+    final displayEmail = (user?.email ?? '').trim();
+    final initial =
+    displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              _buildAvatar(user, initials),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      user.name,
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      user.email.isNotEmpty ? user.email : user.phoneNumber,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.stone,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 66,
+              height: 66,
+              decoration: BoxDecoration(
+                color: AppTheme.ink,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Center(
+                child: Text(
+                  initial,
+                  style: const TextStyle(
+                    fontSize: 30,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.snow,
+                  ),
                 ),
               ),
-            ],
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    displayName,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    displayEmail.isNotEmpty ? displayEmail : 'Finder user',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.stone,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        const Text(
+          'Discovering and saving the best food items.',
+          style: TextStyle(
+            fontSize: 14,
+            color: AppTheme.slate,
           ),
-          const SizedBox(height: 16),
-          Text(
-            user.bio.isNotEmpty
-                ? user.bio
-                : 'Discovering and saving the best food items.',
-            style: const TextStyle(
-              fontSize: 14,
-              color: AppTheme.slate,
-              height: 1.5,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTopStats() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppTheme.snow,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: AppTheme.shadowSm,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _topStatTile(
+              icon: Icons.bookmark_rounded,
+              iconBg: const Color(0xFFEDEBFF),
+              iconColor: const Color(0xFF6C63FF),
+              value: '$_bucketListCount',
+              label: 'Bucket List',
+            ),
+          ),
+          _verticalDivider(),
+          Expanded(
+            child: _topStatTile(
+              icon: Icons.star_rounded,
+              iconBg: const Color(0xFFFFF2E2),
+              iconColor: const Color(0xFFF5A623),
+              value: '$_reviewCount',
+              label: 'Reviews',
+            ),
+          ),
+          _verticalDivider(),
+          Expanded(
+            child: _topStatTile(
+              icon: Icons.lightbulb_rounded,
+              iconBg: const Color(0xFFFFEEE9),
+              iconColor: AppTheme.accent,
+              value: '$_contributionCount',
+              label: 'Contributions',
             ),
           ),
         ],
@@ -143,285 +427,116 @@ class _ProfileTabState extends State<ProfileTab> {
     );
   }
 
-  /// Builds profile avatar using image URL if available,
-  /// otherwise falls back to initials.
-  Widget _buildAvatar(UserModel user, String initials) {
-    if (user.profileImageUrl.isNotEmpty) {
-      return Container(
-        width: 72,
-        height: 72,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          color: AppTheme.offWhite,
-          boxShadow: AppTheme.shadowSm,
-          image: DecorationImage(
-            image: NetworkImage(user.profileImageUrl),
-            fit: BoxFit.cover,
+  Widget _topStatTile({
+    required IconData icon,
+    required Color iconBg,
+    required Color iconColor,
+    required String value,
+    required String label,
+  }) {
+    return Column(
+      children: [
+        Container(
+          width: 46,
+          height: 46,
+          decoration: BoxDecoration(
+            color: iconBg,
+            borderRadius: BorderRadius.circular(14),
           ),
+          child: Icon(icon, color: iconColor),
         ),
-      );
-    }
-
-    return Container(
-      width: 72,
-      height: 72,
-      decoration: BoxDecoration(
-        color: AppTheme.charcoal,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: AppTheme.shadowSm,
-      ),
-      child: Center(
-        child: Text(
-          initials,
+        const SizedBox(height: 12),
+        Text(
+          value,
           style: const TextStyle(
-            color: AppTheme.snow,
-            fontSize: 24,
+            fontSize: 17,
             fontWeight: FontWeight.w800,
+            color: AppTheme.ink,
           ),
         ),
-      ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 12,
+            color: AppTheme.stone,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 
-  /// Builds the main stats row.
-  ///
-  /// Launch phase stats:
-  /// - Bucket List
-  /// - Reviews
-  /// - Contributions
-  Widget _buildStats(UserModel user) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+  Widget _verticalDivider() {
+    return Container(
+      width: 1,
+      height: 60,
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      color: AppTheme.silver.withOpacity(0.45),
+    );
+  }
+
+  Widget _buildAddItemCard(BuildContext context) {
+    return InkWell(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const SuggestItemScreen(),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(18),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: AppTheme.snow,
-          borderRadius: BorderRadius.circular(16),
+          color: AppTheme.accent,
+          borderRadius: BorderRadius.circular(18),
           boxShadow: AppTheme.shadowSm,
         ),
         child: Row(
           children: [
-            _statItem(
-              '6',
-              'Bucket List',
-              Icons.bookmark_rounded,
-              const Color(0xFF5E5CE6),
-            ),
-            _dividerLine(),
-            _statItem(
-              '${user.totalReviewsGiven}',
-              'Reviews',
-              Icons.star_rounded,
-              const Color(0xFFFF9F0A),
-            ),
-            _dividerLine(),
-            _statItem(
-              '3',
-              'Contributions',
-              Icons.lightbulb_rounded,
-              AppTheme.accent,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Builds contribution/impact summary section.
-  ///
-  /// Some values are placeholders now and should later come from backend.
-  Widget _buildImpactSection(BuildContext context, UserModel user) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: AppTheme.snow,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: AppTheme.shadowXs,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Your impact',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: AppTheme.snow.withOpacity(0.18),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(
+                Icons.add_circle_outline_rounded,
+                color: AppTheme.snow,
               ),
             ),
-            const SizedBox(height: 16),
-            _impactRow('Approved suggestions', '3'),
-            const SizedBox(height: 12),
-            _impactRow('Pending review', '2'),
-            const SizedBox(height: 12),
-            _impactRow('Cities contributed', '${user.citiesVisitedCount}'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Builds the profile menu section.
-  ///
-  /// Notes:
-  /// - "Add Item" is intentionally given a separate highlighted card above.
-  /// - "My Contributions" remains here so users can track suggestion history.
-  /// - Other items can stay as they are and be wired later.
-  Widget _buildMenu() {
-    final items = [
-      _MenuItem('My Contributions', Icons.lightbulb_rounded, AppTheme.accent),
-      _MenuItem('Bucket List', Icons.bookmark_rounded, const Color(0xFF5E5CE6)),
-      _MenuItem('My Reviews', Icons.star_rounded, const Color(0xFFFF9F0A)),
-      _MenuItem('Settings', Icons.settings_rounded, AppTheme.slate),
-    ];
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.snow,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: AppTheme.shadowSm,
-        ),
-        child: Column(
-          children: List.generate(items.length, (index) {
-            final item = items[index];
-            final isLast = index == items.length - 1;
-
-            return Column(
-              children: [
-                InkWell(
-                  onTap: () async {
-                    if (item.label == 'My Contributions') {
-                      await Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const MyContributionsScreen(),
-                        ),
-                      );
-
-                      // Refresh profile after returning from contributions screen.
-                      _loadUser();
-                    }
-
-                    // Other menu items can be wired later.
-                  },
-                  borderRadius: BorderRadius.circular(16),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 15,
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: item.color.withOpacity(0.10),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(item.icon, size: 18, color: item.color),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Text(
-                            item.label,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.ink,
-                            ),
-                          ),
-                        ),
-                        const Icon(
-                          Icons.chevron_right_rounded,
-                          size: 20,
-                          color: AppTheme.silver,
-                        ),
-                      ],
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Add Item',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.snow,
                     ),
                   ),
-                ),
-                if (!isLast)
-                  Divider(
-                    height: 1,
-                    indent: 70,
-                    endIndent: 18,
-                    color: AppTheme.silver.withOpacity(0.5),
+                  SizedBox(height: 4),
+                  Text(
+                    'Help others discover standout dishes you’ve tried.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.snow,
+                      height: 1.4,
+                    ),
                   ),
-              ],
-            );
-          }),
-        ),
-      ),
-    );
-  }
-
-  /// Builds footer area.
-  Widget _buildFooter() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-      child: const Center(
-        child: Text(
-          'Finder v1.0.0',
-          style: TextStyle(
-            fontSize: 11,
-            color: AppTheme.pebble,
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Builds loading state while profile is being fetched.
-  Widget _buildLoadingState(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(
-            color: AppTheme.accent,
-            strokeWidth: 2,
-          ),
-          const SizedBox(height: 14),
-          Text(
-            'Loading profile...',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppTheme.stone,
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Builds profile load error state.
-  Widget _buildErrorState(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
             const Icon(
-              Icons.person_off_rounded,
-              size: 42,
-              color: AppTheme.pebble,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Could not load profile',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Please pull to refresh or try again later.',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.stone,
-              ),
+              Icons.chevron_right_rounded,
+              color: AppTheme.snow,
             ),
           ],
         ),
@@ -429,135 +544,41 @@ class _ProfileTabState extends State<ProfileTab> {
     );
   }
 
-  /// Builds one stat item for the top stats row.
-  Widget _statItem(String value, String label, IconData icon, Color color) {
-    return Expanded(
+  Widget _buildImpactCard() {
+    final approved = _summary?.approvedContributions ?? 0;
+    final pending = _summary?.pendingContributions ?? 0;
+    final rejected = _summary?.rejectedContributions ?? 0;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppTheme.snow,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: AppTheme.shadowSm,
+      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 18),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 18,
+          const Text(
+            'Your impact',
+            style: TextStyle(
+              fontSize: 16,
               fontWeight: FontWeight.w800,
               color: AppTheme.ink,
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppTheme.stone,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          const SizedBox(height: 14),
+          _impactRow('Approved suggestions', '$approved'),
+          const SizedBox(height: 10),
+          _impactRow('Pending review', '$pending'),
+          const SizedBox(height: 10),
+          _impactRow('Rejected', '$rejected'),
         ],
       ),
     );
   }
 
-  /// Builds the primary contribution call-to-action card shown on the profile tab.
-  ///
-  /// Why this exists:
-  /// - For a new launch, contribution must be highly visible.
-  /// - Users should not need to search inside menus to add a missing item.
-  /// - This card gives a clear entry point for crowd-sourcing.
-  Widget _buildAddItemCard(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      child: InkWell(
-        onTap: () async {
-          final bool? created = await Navigator.of(context).push<bool>(
-            MaterialPageRoute(
-              builder: (_) => const SuggestItemScreen(),
-            ),
-          );
-
-          // Refresh profile once the user returns after a successful submission.
-          if (created == true) {
-            _loadUser();
-          }
-        },
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: AppTheme.accent,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: AppTheme.shadowSm,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.16),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.add_circle_rounded,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 14),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Add Item',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Help others discover food near you',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: Colors.white,
-                size: 22,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Builds divider line between stats.
-  Widget _dividerLine() {
-    return Container(
-      width: 1,
-      height: 48,
-      color: AppTheme.silver.withValues(alpha: 0.5),
-    );
-  }
-
-  /// Builds one impact row entry.
   Widget _impactRow(String label, String value) {
     return Row(
       children: [
@@ -567,7 +588,6 @@ class _ProfileTabState extends State<ProfileTab> {
             style: const TextStyle(
               fontSize: 14,
               color: AppTheme.slate,
-              fontWeight: FontWeight.w500,
             ),
           ),
         ),
@@ -575,29 +595,211 @@ class _ProfileTabState extends State<ProfileTab> {
           value,
           style: const TextStyle(
             fontSize: 14,
-            color: AppTheme.ink,
             fontWeight: FontWeight.w700,
+            color: AppTheme.ink,
           ),
         ),
       ],
     );
   }
 
-  /// Builds initials from full name.
-  String _buildInitials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty) return 'U';
-    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-
-    return (parts[0].substring(0, 1) + parts[1].substring(0, 1)).toUpperCase();
+  Widget _buildMenuCard(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.snow,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: AppTheme.shadowSm,
+      ),
+      child: Column(
+        children: [
+          _menuTile(
+            icon: Icons.lightbulb_rounded,
+            iconBg: const Color(0xFFFFEEE9),
+            iconColor: AppTheme.accent,
+            title: 'My Contributions',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const MyContributionsScreen(),
+                ),
+              );
+            },
+          ),
+          _divider(),
+          _menuTile(
+            icon: Icons.bookmark_rounded,
+            iconBg: const Color(0xFFEDEBFF),
+            iconColor: const Color(0xFF6C63FF),
+            title: 'Bucket List',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const SavedTab(),
+                ),
+              );
+            },
+          ),
+          _divider(),
+          _menuTile(
+            icon: Icons.star_rounded,
+            iconBg: const Color(0xFFFFF2E2),
+            iconColor: const Color(0xFFF5A623),
+            title: 'My Reviews',
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('My Reviews screen can be added next.'),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
   }
-}
 
-/// Small menu item view model.
-class _MenuItem {
-  final String label;
-  final IconData icon;
-  final Color color;
+  Widget _menuTile({
+    required IconData icon,
+    required Color iconBg,
+    required Color iconColor,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.ink,
+                ),
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppTheme.silver,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-  _MenuItem(this.label, this.icon, this.color);
+  Widget _buildLogoutButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: _logout,
+        icon: const Icon(Icons.logout_rounded),
+        label: const Text(
+          'Logout',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppTheme.ink,
+          side: const BorderSide(color: AppTheme.silver),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _guestStatCard(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.snow,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppTheme.shadowXs,
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.ink,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppTheme.stone,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _guestMenuTile(String label) {
+    return InkWell(
+      onTap: _openLoginFromProfile,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.ink,
+                ),
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppTheme.silver,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _guestDivider() {
+    return Divider(
+      height: 1,
+      indent: 18,
+      endIndent: 18,
+      color: AppTheme.silver.withOpacity(0.45),
+    );
+  }
+
+  Widget _divider() {
+    return Divider(
+      height: 1,
+      indent: 18,
+      endIndent: 18,
+      color: AppTheme.silver.withOpacity(0.45),
+    );
+  }
 }

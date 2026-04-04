@@ -1,39 +1,31 @@
 /// Central API configuration for the app.
-///
-/// Responsibility:
-/// - keeps backend base URL in one place
-/// - keeps endpoint paths centralized
-/// - exposes small environment labels for UI/debug use
 class ApiConfig {
   /// Android emulator localhost mapping.
-  ///
-  /// Important:
-  /// - use 10.0.2.2 for Android emulator
-  /// - if testing on physical device, replace with your machine IP
   static const String baseUrl = 'http://10.0.2.2:8080';
 
-  /// Friendly environment label used in profile/debug UI.
   static const String environmentDisplay = 'Local';
 
-  /// Search suggestion endpoint.
+  /// Auth endpoints
+  static const String loginEndpoint = '$baseUrl/auth/login';
+  static const String registerEndpoint = '$baseUrl/auth/register';
+
+  /// Search endpoints
   static const String suggestionsEndpoint = '$baseUrl/search/suggestions';
-
-  /// Suggestion / contribution endpoints.
-  static const String contributionSuggestionsEndpoint = '$baseUrl/suggestions';
-
-  static String userSuggestionsEndpoint(String userId) =>
-      '$baseUrl/suggestions/user/$userId';
-
-  static String userSummaryEndpoint(String userId) =>
-      '$baseUrl/users/$userId/summary';
-
-  /// Smart search endpoint.
   static const String smartSearchEndpoint = '$baseUrl/search/items/smart';
 
-  /// Basic backend health check endpoint.
-  ///
-  /// Note:
-  /// Add Spring Boot actuator health endpoint if needed:
-  /// /actuator/health
+  /// Suggestion / contribution endpoints
+  static const String contributionSuggestionsEndpoint = '$baseUrl/suggestions';
+  static const String mySuggestionsEndpoint = '$baseUrl/suggestions/me';
+
+  /// User endpoints
+  static const String currentUserEndpoint = '$baseUrl/users/me';
+  static const String currentUserSummaryEndpoint = '$baseUrl/users/me/summary';
+
+  /// Bucket-list endpoints
+  static const String myBucketListEndpoint = '$baseUrl/bucket-list/me';
+  static const String bucketListEndpoint = '$baseUrl/bucket-list';
+  static const String bucketListCheckEndpoint = '$baseUrl/bucket-list/check';
+
+  /// Health endpoint
   static const String healthEndpoint = '$baseUrl/actuator/health';
 }

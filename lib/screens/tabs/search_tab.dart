@@ -1,14 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import '../../theme/app_theme.dart';
+
+import '../../config/user_session.dart';
 import '../../models/search_result_model.dart';
 import '../../models/suggestion_model.dart';
-import '../../services/search_service.dart';
 import '../../services/bucket_list_service.dart';
-import '../../config/user_session.dart';
-import '../item_detail_screen.dart';
 import '../../services/location_service.dart';
+import '../../services/search_service.dart';
+import '../../theme/app_theme.dart';
+import '../auth/login_screen.dart';
+import '../item_detail_screen.dart';
 
 /// Search tab of the application.
 ///
@@ -25,52 +27,26 @@ class SearchTab extends StatefulWidget {
 }
 
 class _SearchTabState extends State<SearchTab> {
-  /// Whether suggestion list should currently be shown.
-  ///
-  /// This becomes true while user is typing a new query.
   bool _showSuggestions = false;
 
-  /// Controller for the main search text field.
   final TextEditingController _searchController = TextEditingController();
-
-  /// Focus node used to manage keyboard focus.
   final FocusNode _searchFocusNode = FocusNode();
 
-  /// Service responsible for backend search APIs.
   final SearchService _searchService = SearchService();
-
-  /// Service responsible for bookmark add/remove APIs.
   final BucketListService _bucketListService = BucketListService();
 
-  /// Debounce timer for autocomplete API calls.
-  ///
-  /// Why:
-  /// - avoids hitting backend on every keystroke immediately
-  /// - improves performance
-  /// - gives smoother UX
   Timer? _debounce;
 
-  /// Whether a search API call is currently running.
   bool _isLoading = false;
-
-  /// Whether the user has executed at least one search.
   bool _hasSearched = false;
 
-  /// Current autocomplete suggestions returned by backend.
   List<SuggestionModel> _suggestions = [];
-
-  /// Current search results returned by backend.
   List<SearchResultModel> _results = [];
 
   @override
   void initState() {
     super.initState();
-
-    /// Listen to search field changes so we can trigger suggestions.
     _searchController.addListener(_onSearchTextChanged);
-
-    /// Rebuild UI when focus changes so suggestions can be shown/hidden
-    /// depending on whether the user is actively editing.
     _searchFocusNode.addListener(() {
       if (mounted) {
         setState(() {});
@@ -88,12 +64,19 @@ class _SearchTabState extends State<SearchTab> {
   }
 
   /// Toggles bookmark state for a search result item.
-  ///
-  /// UX strategy:
-  /// - update UI immediately for fast feel
-  /// - call backend API in background
-  /// - revert UI if API fails
   Future<void> _toggleBookmark(SearchResultModel result) async {
+    if (!UserSession.isLoggedIn) {
+      final bool? loggedIn = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (_) => const LoginScreen(),
+        ),
+      );
+
+      if (loggedIn != true) {
+        return;
+      }
+    }
+
     final int index =
     _results.indexWhere((element) => element.itemId == result.itemId);
 
@@ -102,7 +85,6 @@ class _SearchTabState extends State<SearchTab> {
     final bool oldValue = _results[index].isBookmarked;
     final bool newValue = !oldValue;
 
-    // Optimistic UI update for fast product feel.
     setState(() {
       _results[index] = SearchResultModel(
         itemId: _results[index].itemId,
@@ -120,18 +102,11 @@ class _SearchTabState extends State<SearchTab> {
 
     try {
       if (newValue) {
-        await _bucketListService.addToBucketList(
-          userId: UserSession.userId,
-          itemId: result.itemId,
-        );
+        await _bucketListService.addToBucketList(result.itemId);
       } else {
-        await _bucketListService.removeFromBucketList(
-          userId: UserSession.userId,
-          itemId: result.itemId,
-        );
+        await _bucketListService.removeFromBucketList(result.itemId);
       }
-    } catch (e) {
-      // Revert UI if backend call fails.
+    } catch (_) {
       if (!mounted) return;
 
       setState(() {
@@ -157,19 +132,11 @@ class _SearchTabState extends State<SearchTab> {
     }
   }
 
-  /// Called whenever the text in the search field changes.
-  ///
-  /// This method:
-  /// - rebuilds UI for clear/search icon changes
-  /// - clears suggestions for very short queries
-  /// - uses debounce before calling autocomplete API
-  /// - shows suggestions even after a previous search
   void _onSearchTextChanged() {
     setState(() {});
 
     final query = _searchController.text.trim();
 
-    // Do not show suggestions for very short input.
     if (query.length < 2) {
       _debounce?.cancel();
 
@@ -180,22 +147,16 @@ class _SearchTabState extends State<SearchTab> {
       return;
     }
 
-    // User is typing a new query, so suggestions should be visible.
     setState(() {
       _showSuggestions = true;
     });
 
-    // Debounce suggestion API calls for better UX and lower backend load.
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 250), () {
       _loadSuggestions(query);
     });
   }
 
-  /// Loads autocomplete suggestions from backend.
-  ///
-  /// Backend endpoint:
-  /// GET /search/suggestions?query=...
   Future<void> _loadSuggestions(String query) async {
     try {
       final suggestions = await _searchService.fetchSuggestions(query);
@@ -205,7 +166,7 @@ class _SearchTabState extends State<SearchTab> {
       setState(() {
         _suggestions = suggestions;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
 
       setState(() {
@@ -214,15 +175,6 @@ class _SearchTabState extends State<SearchTab> {
     }
   }
 
-  /// Executes smart search using backend.
-  ///
-  /// Behavior:
-  /// - regular queries -> normal smart search
-  /// - near-me intent -> request location only when needed
-  /// - if location is unavailable for near-me search, show a message and stop
-  ///
-  /// Backend endpoint:
-  /// GET /search/items/smart?query=...
   Future<void> _performSearch(String query) async {
     final String trimmedQuery = query.trim();
     if (trimmedQuery.isEmpty) return;
@@ -241,12 +193,10 @@ class _SearchTabState extends State<SearchTab> {
       double? latitude;
       double? longitude;
 
-      // Ask for location only when the query clearly expresses a near-me intent.
       if (LocationService.hasNearMeIntent(trimmedQuery)) {
         final AppLocationResult? location =
         await LocationService.getCurrentLocationWithAddress();
 
-        // User denied permission or location service is unavailable.
         if (location == null) {
           if (!mounted) return;
 
@@ -284,7 +234,7 @@ class _SearchTabState extends State<SearchTab> {
         _results = results;
         _isLoading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
 
       setState(() {
@@ -300,7 +250,6 @@ class _SearchTabState extends State<SearchTab> {
     }
   }
 
-  /// Clears the current search and resets the tab to initial state.
   void _clearSearch() {
     _debounce?.cancel();
     _searchController.clear();
@@ -316,14 +265,8 @@ class _SearchTabState extends State<SearchTab> {
     _searchFocusNode.requestFocus();
   }
 
-  /// Handles suggestion tap.
-  ///
-  /// If backend provides canonical value, we search using it.
-  /// This is especially useful for aliases like:
-  /// Golgappa -> Pani Puri
   void _onSuggestionTap(SuggestionModel suggestion) {
-    final valueToSearch =
-        suggestion.canonicalValue ?? suggestion.displayText;
+    final valueToSearch = suggestion.canonicalValue ?? suggestion.displayText;
 
     _searchController.text = valueToSearch;
 
@@ -334,7 +277,6 @@ class _SearchTabState extends State<SearchTab> {
     _performSearch(valueToSearch);
   }
 
-  /// Handles quick search chip tap.
   void _onQuickSearchTap(String query) {
     _searchController.text = query;
     _performSearch(query);
@@ -367,9 +309,6 @@ class _SearchTabState extends State<SearchTab> {
     );
   }
 
-  /// Builds the fixed top search area.
-  ///
-  /// This stays visible before and after search.
   Widget _buildSearchHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
@@ -428,23 +367,11 @@ class _SearchTabState extends State<SearchTab> {
     );
   }
 
-  /// Builds the main body below the search bar.
-  ///
-  /// Depending on current UI state, this shows:
-  /// - loading state
-  /// - suggestions
-  /// - search results
-  /// - empty state
-  /// - initial discover view
   Widget _buildBody(BuildContext context) {
     if (_isLoading) {
       return _buildLoadingState(context);
     }
 
-    // Show suggestions only when:
-    // 1. user is actively typing
-    // 2. suggestions are available
-    // 3. search field is focused
     if (_showSuggestions &&
         _suggestions.isNotEmpty &&
         _searchFocusNode.hasFocus) {
@@ -462,7 +389,6 @@ class _SearchTabState extends State<SearchTab> {
     return _buildDiscoverView(context);
   }
 
-  /// Builds the initial discover state before user performs search.
   Widget _buildDiscoverView(BuildContext context) {
     final quickSearches = [
       'Best pani puri',
@@ -486,26 +412,20 @@ class _SearchTabState extends State<SearchTab> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Find the best food items by name, alias, or area.',
+            'Find the dishes worth trying around you.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: AppTheme.stone,
             ),
           ),
           const SizedBox(height: 24),
-          Text(
-            'Quick searches',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 12),
           Wrap(
             spacing: 10,
             runSpacing: 10,
             children: quickSearches
                 .map(
-                  (text) => GestureDetector(
-                onTap: () => _onQuickSearchTap(text),
+                  (query) => InkWell(
+                onTap: () => _onQuickSearchTap(query),
+                borderRadius: BorderRadius.circular(24),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
@@ -517,7 +437,7 @@ class _SearchTabState extends State<SearchTab> {
                     border: Border.all(color: AppTheme.silver),
                   ),
                   child: Text(
-                    text,
+                    query,
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -534,17 +454,26 @@ class _SearchTabState extends State<SearchTab> {
     );
   }
 
-  /// Builds the autocomplete suggestion list.
+  Widget _buildLoadingState(BuildContext context) {
+    return const Center(
+      child: CircularProgressIndicator(
+        color: AppTheme.accent,
+        strokeWidth: 2,
+      ),
+    );
+  }
+
   Widget _buildSuggestionsList() {
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 120),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
       itemCount: _suggestions.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final suggestion = _suggestions[index];
 
-        return GestureDetector(
+        return InkWell(
           onTap: () => _onSuggestionTap(suggestion),
+          borderRadius: BorderRadius.circular(14),
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
@@ -554,33 +483,26 @@ class _SearchTabState extends State<SearchTab> {
             ),
             child: Row(
               children: [
-                _buildSuggestionIcon(suggestion.type),
-                const SizedBox(width: 12),
+                const Icon(Icons.north_west_rounded, color: AppTheme.pebble),
+                const SizedBox(width: 10),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        suggestion.displayText,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.ink,
-                        ),
-                      ),
-                      if (suggestion.secondaryText != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          suggestion.secondaryText!,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.stone,
-                          ),
-                        ),
-                      ],
-                    ],
+                  child: Text(
+                    suggestion.displayText,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.ink,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
+                if ((suggestion.secondaryText ?? '').trim().isNotEmpty)
+                  Text(
+                    suggestion.secondaryText!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.stone,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -589,92 +511,6 @@ class _SearchTabState extends State<SearchTab> {
     );
   }
 
-  /// Builds one icon for a suggestion type.
-  Widget _buildSuggestionIcon(String type) {
-    IconData icon;
-
-    switch (type) {
-      case 'ALIAS':
-        icon = Icons.sync_alt_rounded;
-        break;
-      case 'AREA':
-        icon = Icons.location_on_rounded;
-        break;
-      case 'CITY':
-        icon = Icons.location_city_rounded;
-        break;
-      default:
-        icon = Icons.search_rounded;
-    }
-
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: AppTheme.offWhite,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Icon(icon, size: 18, color: AppTheme.ink),
-    );
-  }
-
-  /// Builds loading state while search request is in progress.
-  Widget _buildLoadingState(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(
-            color: AppTheme.accent,
-            strokeWidth: 2,
-          ),
-          const SizedBox(height: 14),
-          Text(
-            'Searching...',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppTheme.stone,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Builds empty state when no results are found.
-  Widget _buildEmptyState(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.search_off_rounded,
-              size: 42,
-              color: AppTheme.pebble,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'No results found',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Try another item name, alias, or area.',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.stone,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Builds the final result list after search is completed.
   Widget _buildResultsList() {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
@@ -683,15 +519,15 @@ class _SearchTabState extends State<SearchTab> {
       itemBuilder: (context, index) {
         final result = _results[index];
 
-        return GestureDetector(
+        return InkWell(
           onTap: () {
-            Navigator.push(
-              context,
+            Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => ItemDetailScreen(summary: result),
               ),
             );
           },
+          borderRadius: BorderRadius.circular(16),
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -710,7 +546,7 @@ class _SearchTabState extends State<SearchTab> {
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Icon(
-                    Icons.restaurant_rounded,
+                    Icons.restaurant_menu_rounded,
                     color: AppTheme.ink,
                   ),
                 ),
@@ -732,16 +568,18 @@ class _SearchTabState extends State<SearchTab> {
                         result.restaurantName,
                         style: const TextStyle(
                           fontSize: 13,
-                          color: AppTheme.stone,
-                          fontWeight: FontWeight.w500,
+                          color: AppTheme.slate,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       Text(
-                        '${result.areaName}, ${result.city}',
+                        [result.areaName, result.city]
+                            .where((e) => e.trim().isNotEmpty)
+                            .join(', '),
                         style: const TextStyle(
                           fontSize: 12,
-                          color: AppTheme.pebble,
+                          color: AppTheme.stone,
                         ),
                       ),
                     ],
@@ -750,25 +588,6 @@ class _SearchTabState extends State<SearchTab> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.star_rounded,
-                          size: 14,
-                          color: Color(0xFFFF9F0A),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          result.avgItemRating?.toStringAsFixed(1) ?? '-',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.ink,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
                     GestureDetector(
                       onTap: () => _toggleBookmark(result),
                       child: Icon(
@@ -780,6 +599,27 @@ class _SearchTabState extends State<SearchTab> {
                             : AppTheme.pebble,
                       ),
                     ),
+                    const SizedBox(height: 10),
+                    if (result.avgItemRating != null)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.star_rounded,
+                            size: 16,
+                            color: Color(0xFFFF9F0A),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            result.avgItemRating!.toStringAsFixed(1),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.ink,
+                            ),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
               ],
@@ -787,6 +627,39 @@ class _SearchTabState extends State<SearchTab> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.search_off_rounded,
+              size: 46,
+              color: AppTheme.pebble,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No matching items found',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Try another item, area, or use a nearby search query.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppTheme.stone,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
