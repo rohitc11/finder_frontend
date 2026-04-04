@@ -3,6 +3,8 @@ import '../../models/bucket_list_item_model.dart';
 import '../../services/bucket_list_service.dart';
 import '../../theme/app_theme.dart';
 import '../../config/user_session.dart';
+import '../../models/search_result_model.dart';
+import '../item_detail_screen.dart';
 
 /// Saved tab showing user's bookmarked items.
 ///
@@ -95,6 +97,32 @@ class SavedTabState extends State<SavedTab> {
       );
     }
   }
+
+  /// Opens item detail from a saved/bucket-list item.
+  ///
+  /// Since bucket-list response is lighter than search response, we build a
+  /// minimal SearchResultModel and let ItemDetailScreen fetch full details.
+  void _openSavedItemDetail(BucketListItemModel item) {
+    final summary = SearchResultModel(
+      itemId: item.itemId,
+      itemName: item.itemName,
+      restaurantId: '',
+      restaurantName: '',
+      city: item.city,
+      areaName: item.areaName,
+      avgItemRating: null,
+      ratingCount: null,
+      distanceInKm: null,
+      isBookmarked: true,
+    );
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ItemDetailScreen(summary: summary),
+      ),
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -200,6 +228,10 @@ class SavedTabState extends State<SavedTab> {
   }
 
   /// Builds saved items list.
+  ///
+  /// Behavior:
+  /// - tap card -> open item detail
+  /// - tap bookmark icon -> remove from bucket list
   Widget _buildSavedItemsList() {
     return RefreshIndicator(
       onRefresh: _loadSavedItems,
@@ -210,60 +242,66 @@ class SavedTabState extends State<SavedTab> {
         itemBuilder: (context, index) {
           final item = _savedItems[index];
 
-          return Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.snow,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: AppTheme.shadowXs,
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: AppTheme.offWhite,
-                    borderRadius: BorderRadius.circular(14),
+          return InkWell(
+            onTap: () => _openSavedItemDetail(item),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.snow,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: AppTheme.shadowXs,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: AppTheme.offWhite,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(
+                      Icons.restaurant_rounded,
+                      color: AppTheme.ink,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.restaurant_rounded,
-                    color: AppTheme.ink,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.itemName,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.ink,
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.itemName,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.ink,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${item.areaName}, ${item.city}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.pebble,
+                        const SizedBox(height: 4),
+                        Text(
+                          [item.areaName, item.city]
+                              .where((e) => e.trim().isNotEmpty)
+                              .join(', '),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.pebble,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                GestureDetector(
-                  onTap: () => _removeSavedItem(item),
-                  child: const Icon(
-                    Icons.bookmark_rounded,
-                    color: AppTheme.accent,
+                  GestureDetector(
+                    onTap: () => _removeSavedItem(item),
+                    child: const Icon(
+                      Icons.bookmark_rounded,
+                      color: AppTheme.accent,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           );
         },

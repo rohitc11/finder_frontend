@@ -4,6 +4,7 @@ import '../../config/user_session.dart';
 import '../../services/contribution_service.dart';
 import '../../theme/app_theme.dart';
 import '../../services/location_service.dart';
+import '../../config/feature_flags.dart';
 
 class SuggestItemScreen extends StatefulWidget {
   final String initialItemName;
@@ -526,7 +527,16 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
     );
   }
 
+  /// Builds the top hero card for the Add Item screen.
+  ///
+  /// Messaging rule:
+  /// - if rewards are enabled, mention approval/rewards
+  /// - if rewards are disabled, keep only contribution motivation
   Widget _buildHeroCard() {
+    final String subtitle = FeatureFlags.isRewardsEnabled
+        ? 'Help others discover standout dishes and earn points once approved.'
+        : 'Help others invest in great taste by sharing dishes truly worth trying.';
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -564,7 +574,7 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Suggest missing food items and earn reward points once approved.',
+                  subtitle,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: AppTheme.stone,
                   ),

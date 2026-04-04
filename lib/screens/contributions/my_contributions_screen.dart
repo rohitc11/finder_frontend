@@ -6,6 +6,7 @@ import '../../models/user_suggestion_model.dart';
 import '../../services/contribution_service.dart';
 import '../../theme/app_theme.dart';
 import 'suggest_item_screen.dart';
+import '../../config/feature_flags.dart';
 
 /// Main screen for viewing user's contribution summary and submitted suggestions.
 ///
@@ -166,7 +167,16 @@ class _MyContributionsScreenState extends State<MyContributionsScreen> {
     );
   }
 
+  /// Builds the contributions page header.
+  ///
+  /// Messaging rule:
+  /// - keep contribution language always visible
+  /// - mention rewards only when rewards are enabled
   Widget _buildHeader() {
+    final subtitle = FeatureFlags.isRewardsEnabled
+        ? 'Track your food suggestions, reward points, and moderation status.'
+        : 'Track your food suggestions and moderation status.';
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: Column(
@@ -180,7 +190,7 @@ class _MyContributionsScreenState extends State<MyContributionsScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Track your food suggestions, reward points, and moderation status.',
+            subtitle,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: AppTheme.stone,
             ),
@@ -190,77 +200,84 @@ class _MyContributionsScreenState extends State<MyContributionsScreen> {
     );
   }
 
+  /// Builds contribution summary cards.
+  ///
+  /// Behavior:
+  /// - contribution counters are always shown
+  /// - reward points card is shown only when rewards are enabled
   Widget _buildSummaryCards(UserProfileSummaryModel summary) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: AppTheme.ink,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: AppTheme.shadowMd,
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: AppTheme.accent.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(
-                    Icons.workspace_premium_rounded,
-                    color: AppTheme.accent,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Reward points',
-                        style: TextStyle(
-                          color: AppTheme.snow,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '${summary.rewardPoints}',
-                        style: const TextStyle(
-                          color: AppTheme.snow,
-                          fontSize: 28,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.snow.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    '100 to claim',
-                    style: TextStyle(
-                      color: AppTheme.snow,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+          if (FeatureFlags.isRewardsEnabled) ...[
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: AppTheme.ink,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: AppTheme.shadowMd,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: AppTheme.accent.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(
+                      Icons.workspace_premium_rounded,
+                      color: AppTheme.accent,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Reward points',
+                          style: TextStyle(
+                            color: AppTheme.snow,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '${summary.rewardPoints}',
+                          style: const TextStyle(
+                            color: AppTheme.snow,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.snow.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      '100 to claim',
+                      style: TextStyle(
+                        color: AppTheme.snow,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 14),
+            const SizedBox(height: 14),
+          ],
           Row(
             children: [
               Expanded(
@@ -344,6 +361,11 @@ class _MyContributionsScreenState extends State<MyContributionsScreen> {
     );
   }
 
+  /// Builds lightweight contribution insights.
+  ///
+  /// Behavior:
+  /// - always shows contribution insights
+  /// - does not depend on rewards being enabled
   Widget _buildQuickInsights(UserProfileSummaryModel summary) {
     final total = summary.totalContributions;
     final approvalRate = total == 0

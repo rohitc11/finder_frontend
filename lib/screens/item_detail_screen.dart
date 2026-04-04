@@ -9,6 +9,7 @@ import '../models/user_model.dart';
 import '../services/review_service.dart';
 import '../services/user_service.dart';
 import 'reviews/write_review_bottom_sheet.dart';
+import 'package:share_plus/share_plus.dart';
 
 /// Item detail screen.
 ///
@@ -180,6 +181,46 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     }
   }
 
+
+  /// Shares the current item using a simple launch-friendly text format.
+  ///
+  /// Why this approach:
+  /// - works immediately without requiring deep-link infrastructure
+  /// - helps users promote the app by sharing standout dishes
+  /// - can later be upgraded to app links / web links
+  Future<void> _shareItem() async {
+    final itemName = _item?.itemName ?? widget.summary.itemName;
+    final restaurantName = _item?.restaurantName ?? widget.summary.restaurantName;
+    final areaName = (_item?.areaName ?? widget.summary.areaName).trim();
+    final city = (_item?.city ?? widget.summary.city).trim();
+
+    final locationText = [if (areaName.isNotEmpty) areaName, if (city.isNotEmpty) city]
+        .join(', ')
+        .trim();
+
+    final rating = _item?.avgItemRating ?? widget.summary.avgItemRating;
+
+    final message = StringBuffer()
+      ..writeln('Check out this standout dish on Finder')
+      ..writeln()
+      ..writeln('Item: $itemName')
+      ..writeln('Place: $restaurantName');
+
+    if (locationText.isNotEmpty) {
+      message.writeln('Location: $locationText');
+    }
+
+    if (rating != null) {
+      message.writeln('Rating: ${rating.toStringAsFixed(1)}');
+    }
+
+    message
+      ..writeln()
+      ..write('Discover iconic dishes on Finder.');
+
+    await Share.share(message.toString());
+  }
+
   @override
   Widget build(BuildContext context) {
     final item = _item;
@@ -201,6 +242,13 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                 fontWeight: FontWeight.w700,
               ),
             ),
+            actions: [
+              IconButton(
+                tooltip: 'Share item',
+                onPressed: _shareItem,
+                icon: const Icon(Icons.share_rounded),
+              ),
+            ],
           ),
           SliverToBoxAdapter(
             child: _buildBody(context, item),

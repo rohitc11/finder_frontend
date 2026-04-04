@@ -9,6 +9,7 @@ import '../contributions/my_contributions_screen.dart';
 import '../contributions/suggest_item_screen.dart';
 import '../item_detail_screen.dart';
 import 'search_tab.dart';
+import '../../config/feature_flags.dart';
 
 /// Home tab shown as the first screen inside the app shell.
 ///
@@ -71,7 +72,7 @@ class HomeTab extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Discover the best food items around you.',
+          'Discover the iconic dishes around you.',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: AppTheme.stone,
           ),
@@ -160,11 +161,15 @@ class HomeTab extends StatelessWidget {
 
   /// Builds the main contribution banner.
   ///
-  /// Design choice:
-  /// - use a richer premium-looking color instead of flat black
-  /// - keep copy aspirational and premium
+  /// Behavior:
+  /// - contribution message always stays visible
+  /// - reward-specific wording appears only when rewards are enabled
   Widget _buildContributionBanner(BuildContext context) {
     const Color bannerColor = Color(0xFF4B2E83);
+
+    final subtitle = FeatureFlags.isRewardsEnabled
+        ? 'Help others discover truly exceptional dishes you’ve experienced, and earn points after approval.'
+        : 'Help others discover truly exceptional dishes you’ve experienced.';
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -186,7 +191,7 @@ class HomeTab extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Help others discover truly exceptional dishes you’ve experienced.',
+            subtitle,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: AppTheme.snow.withOpacity(0.82),
               height: 1.4,
@@ -232,9 +237,9 @@ class HomeTab extends StatelessWidget {
                     );
                   },
                   icon: const Icon(Icons.workspace_premium_rounded, size: 18),
-                  label: const Text(
-                    'My Impact',
-                    style: TextStyle(fontWeight: FontWeight.w700),
+                  label: Text(
+                    FeatureFlags.isRewardsEnabled ? 'My Impact' : 'Contributions',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.snow,
