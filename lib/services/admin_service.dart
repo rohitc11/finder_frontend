@@ -6,13 +6,7 @@ import '../config/api_config.dart';
 import '../config/user_session.dart';
 import '../models/admin_suggestion_model.dart';
 
-/// Service responsible for admin moderation APIs.
-///
-/// Security:
-/// - backend verifies ADMIN role using JWT
-/// - frontend only shows this flow for admin users
 class AdminService {
-  /// Fetches all pending suggestions for moderation.
   Future<List<AdminSuggestionModel>> fetchPendingSuggestions() async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/suggestions/pending');
 
@@ -24,7 +18,7 @@ class AdminService {
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to load pending suggestions');
+      throw Exception(_extractMessage(response.body, 'Failed to load pending suggestions'));
     }
 
     final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
@@ -33,7 +27,6 @@ class AdminService {
         .toList();
   }
 
-  /// Approves one suggestion as a brand-new item.
   Future<void> approveSuggestionAsNew(String suggestionId) async {
     final uri = Uri.parse(
       '${ApiConfig.baseUrl}/suggestions/$suggestionId/approve-new',
@@ -49,12 +42,14 @@ class AdminService {
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('Failed to approve suggestion');
+      throw Exception(_extractMessage(response.body, 'Failed to approve suggestion'));
     }
   }
 
-  /// Rejects one suggestion.
-  Future<void> rejectSuggestion(String suggestionId) async {
+  Future<void> rejectSuggestion(
+      String suggestionId, {
+        String? rejectionReason,
+      }) async {
     final uri = Uri.parse(
       '${ApiConfig.baseUrl}/suggestions/$suggestionId/reject',
     );
@@ -65,11 +60,30 @@ class AdminService {
         'Content-Type': 'application/json',
         ...UserSession.authHeaders,
       },
-      body: jsonEncode({}),
+      body: jsonEncode({
+        'rejectionReason': (rejectionReason ?? '').trim().isEmpty
+            ? null
+            : rejectionReason!.trim(),
+      }),
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('Failed to reject suggestion');
+      throw Exception(_extractMessage(response.body, 'Failed to reject suggestion'));
     }
+  }
+
+  String _extractMessage(String body, String fallback) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map<String, dynamic>) {
+        if ((decoded['message'] ?? '').toString().trim().isNotEmpty) {
+          return decoded['message'].toString();
+        }
+        if ((decoded['error'] ?? '').toString().trim().isNotEmpty) {
+          return decoded['error'].toString();
+        }
+      }
+    } catch (_) {}
+    return fallback;
   }
 }

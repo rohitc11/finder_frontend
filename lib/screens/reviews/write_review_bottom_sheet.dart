@@ -109,7 +109,7 @@ class _WriteReviewBottomSheetState extends State<WriteReviewBottomSheet> {
 
       if (!mounted) return;
       Navigator.of(context).pop(true);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
 
       setState(() {
@@ -118,7 +118,7 @@ class _WriteReviewBottomSheetState extends State<WriteReviewBottomSheet> {
 
       await _showMessageDialog(
         title: 'Could not submit review',
-        message: 'Please try again later.',
+        message: e.toString().replaceFirst('Exception: ', ''),
       );
     }
   }
@@ -256,9 +256,7 @@ class _WriteReviewBottomSheetState extends State<WriteReviewBottomSheet> {
                 '$_wordCount / $_maxWords words',
                 style: TextStyle(
                   fontSize: 12,
-                  color: _wordCount > _maxWords
-                      ? AppTheme.error
-                      : AppTheme.stone,
+                  color: _wordCount > _maxWords ? AppTheme.error : AppTheme.stone,
                 ),
               ),
               const SizedBox(height: 18),
