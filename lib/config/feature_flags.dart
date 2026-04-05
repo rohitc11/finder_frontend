@@ -11,4 +11,14 @@ class FeatureFlags {
   /// - when false, only reward UI is hidden
   /// - contribution history and counters should still remain visible
   static const bool isRewardsEnabled = true;
+
+  /// Quick actions launch toggles.
+  ///
+  /// Current product decision:
+  /// - Best Near Me is enabled
+  /// - Top Rated and Must Try stay visible but disabled until ranking/rating
+  ///   logic becomes reliable enough for launch
+  static const bool isBestNearMeQuickActionEnabled = true;
+  static const bool isTopRatedQuickActionEnabled = false;
+  static const bool isMustTryQuickActionEnabled = false;
 }

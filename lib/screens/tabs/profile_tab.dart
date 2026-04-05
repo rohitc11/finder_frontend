@@ -15,6 +15,8 @@ import '../home_screen.dart';
 import 'saved_tab.dart';
 import '../saved/bucket_list_page.dart';
 import '../admin/pending_suggestions_screen.dart';
+import '../reviews/my_reviews_screen.dart';
+import '../auth/login_screen.dart';
 
 /// Profile tab.
 ///
@@ -680,9 +682,9 @@ class _ProfileTabState extends State<ProfileTab> {
             iconColor: const Color(0xFFF5A623),
             title: 'My Reviews',
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('My Reviews screen can be added next.'),
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const MyReviewsScreen(),
                 ),
               );
             },

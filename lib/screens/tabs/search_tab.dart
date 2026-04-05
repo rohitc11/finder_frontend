@@ -11,6 +11,7 @@ import '../../services/search_service.dart';
 import '../../theme/app_theme.dart';
 import '../auth/login_screen.dart';
 import '../item_detail_screen.dart';
+import '../contributions/suggest_item_screen.dart';
 
 /// Search tab of the application.
 ///
@@ -631,6 +632,8 @@ class _SearchTabState extends State<SearchTab> {
   }
 
   Widget _buildEmptyState(BuildContext context) {
+    final query = _searchController.text.trim();
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -651,10 +654,38 @@ class _SearchTabState extends State<SearchTab> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Try another item, area, or use a nearby search query.',
+              'Try another item, area, or nearby search. If this dish deserves to be here, you can suggest it.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: AppTheme.stone,
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => SuggestItemScreen(
+                        initialItemName: query,
+                      ),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.accent,
+                  foregroundColor: AppTheme.snow,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                icon: const Icon(Icons.add_circle_rounded),
+                label: const Text(
+                  'Suggest this item',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
               ),
             ),
           ],

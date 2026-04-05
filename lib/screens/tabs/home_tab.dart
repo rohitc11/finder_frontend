@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../config/feature_flags.dart';
 import '../../config/user_session.dart';
 import '../../models/search_result_model.dart';
 import '../../services/location_service.dart';
@@ -9,7 +10,6 @@ import '../contributions/my_contributions_screen.dart';
 import '../contributions/suggest_item_screen.dart';
 import '../item_detail_screen.dart';
 import 'search_tab.dart';
-import '../../config/feature_flags.dart';
 
 /// Home tab shown as the first screen inside the app shell.
 ///
@@ -59,7 +59,6 @@ class HomeTab extends StatelessWidget {
     );
   }
 
-  /// Builds the top greeting/title area.
   Widget _buildHeader(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -261,28 +260,31 @@ class HomeTab extends StatelessWidget {
 
   /// Builds quick actions for launch.
   ///
-  /// Notes:
-  /// - Add Item removed from quick actions because banner already covers it
-  /// - these actions now work immediately
+  /// Launch decision:
+  /// - only Best Near Me is enabled for now
+  /// - Top Rated and Must Try remain visible but disabled until rating/ranking is ready
   Widget _buildQuickActions(BuildContext context) {
     final actions = [
       _QuickActionData(
-        'Best Near Me',
-        Icons.near_me_rounded,
-        'Find standout dishes nearby',
-        'near me',
+        label: 'Best Near Me',
+        icon: Icons.near_me_rounded,
+        subtitle: 'Find standout dishes nearby',
+        query: 'near me',
+        isEnabled: FeatureFlags.isBestNearMeQuickActionEnabled,
       ),
       _QuickActionData(
-        'Top Rated',
-        Icons.star_rounded,
-        'Search best-rated dishes',
-        'best',
+        label: 'Top Rated',
+        icon: Icons.star_rounded,
+        subtitle: 'Search best-rated dishes',
+        query: 'best',
+        isEnabled: FeatureFlags.isTopRatedQuickActionEnabled,
       ),
       _QuickActionData(
-        'Must Try',
-        Icons.local_fire_department_rounded,
-        'Explore famous food picks',
-        'must try',
+        label: 'Must Try',
+        icon: Icons.local_fire_department_rounded,
+        subtitle: 'Explore famous food picks',
+        query: 'must try',
+        isEnabled: FeatureFlags.isMustTryQuickActionEnabled,
       ),
     ];
 
@@ -302,57 +304,64 @@ class HomeTab extends StatelessWidget {
     );
   }
 
-  /// Builds one quick action tile.
   Widget _buildQuickActionTile(
       BuildContext context,
       _QuickActionData action,
       ) {
+    final Color iconColor = action.isEnabled ? AppTheme.ink : AppTheme.pebble;
+    final Color titleColor = action.isEnabled ? AppTheme.ink : AppTheme.pebble;
+    final Color subtitleColor = action.isEnabled ? AppTheme.stone : AppTheme.silver;
+
     return InkWell(
-      onTap: () {
+      onTap: action.isEnabled
+          ? () {
         _openQuickSearchResults(
           context,
           title: action.label,
           query: action.query,
         );
-      },
+      }
+          : null,
       borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
-        decoration: BoxDecoration(
-          color: AppTheme.snow,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: AppTheme.shadowXs,
-        ),
-        child: Column(
-          children: [
-            Icon(action.icon, color: AppTheme.ink, size: 22),
-            const SizedBox(height: 10),
-            Text(
-              action.label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.ink,
+      child: Opacity(
+        opacity: action.isEnabled ? 1 : 0.65,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
+          decoration: BoxDecoration(
+            color: AppTheme.snow,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: AppTheme.shadowXs,
+          ),
+          child: Column(
+            children: [
+              Icon(action.icon, color: iconColor, size: 22),
+              const SizedBox(height: 10),
+              Text(
+                action.label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: titleColor,
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              action.subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 11,
-                color: AppTheme.stone,
-                height: 1.3,
+              const SizedBox(height: 6),
+              Text(
+                action.isEnabled ? action.subtitle : 'Coming soon',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: subtitleColor,
+                  height: 1.3,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  /// Builds section headers across the page.
   Widget _buildSectionHeader(BuildContext context, String title) {
     return Text(
       title,
@@ -363,8 +372,12 @@ class HomeTab extends StatelessWidget {
   }
 
   /// Builds clickable popular search chips.
+  ///
+  /// Launch note:
+  /// - Best Near Me is intentionally repeated here because it already works well
   Widget _buildPopularSearchChips(BuildContext context) {
     final suggestions = [
+      'Best Near Me',
       'Pani Puri',
       'Khaman',
       'Fafda Jalebi',
@@ -380,10 +393,11 @@ class HomeTab extends StatelessWidget {
           .map(
             (text) => InkWell(
           onTap: () {
+            final query = text == 'Best Near Me' ? 'near me' : text;
             _openQuickSearchResults(
               context,
               title: text,
-              query: text,
+              query: query,
             );
           },
           borderRadius: BorderRadius.circular(24),
@@ -412,7 +426,6 @@ class HomeTab extends StatelessWidget {
     );
   }
 
-  /// Builds small product value cards.
   Widget _buildValueCards() {
     final cards = [
       _ValueCardData(
@@ -444,7 +457,6 @@ class HomeTab extends StatelessWidget {
     );
   }
 
-  /// Builds one product value card.
   Widget _buildValueCard(_ValueCardData card) {
     return Container(
       width: double.infinity,
@@ -496,7 +508,6 @@ class HomeTab extends StatelessWidget {
     );
   }
 
-  /// Opens quick search results from Home actions and chips.
   void _openQuickSearchResults(
       BuildContext context, {
         required String title,
@@ -513,17 +524,22 @@ class HomeTab extends StatelessWidget {
   }
 }
 
-/// Small view model for quick action tiles.
 class _QuickActionData {
   final String label;
   final IconData icon;
   final String subtitle;
   final String query;
+  final bool isEnabled;
 
-  _QuickActionData(this.label, this.icon, this.subtitle, this.query);
+  _QuickActionData({
+    required this.label,
+    required this.icon,
+    required this.subtitle,
+    required this.query,
+    required this.isEnabled,
+  });
 }
 
-/// Small view model for value cards.
 class _ValueCardData {
   final String title;
   final String subtitle;
@@ -532,11 +548,6 @@ class _ValueCardData {
   _ValueCardData(this.title, this.subtitle, this.icon);
 }
 
-/// Simple wrapper that opens the full Search page from Home.
-///
-/// Why:
-/// - search card on Home should feel real
-/// - keeps Home lightweight while reusing existing SearchTab
 class _SearchPageWrapper extends StatelessWidget {
   const _SearchPageWrapper();
 
@@ -558,12 +569,6 @@ class _SearchPageWrapper extends StatelessWidget {
   }
 }
 
-/// Lightweight results page used by Home quick actions and popular chips.
-///
-/// Why this exists:
-/// - lets Home actions work immediately
-/// - avoids changing the main SearchTab contract right now
-/// - keeps implementation fast for launch
 class _QuickSearchResultsScreen extends StatefulWidget {
   final String title;
   final String query;
@@ -591,11 +596,6 @@ class _QuickSearchResultsScreenState extends State<_QuickSearchResultsScreen> {
     _loadResults();
   }
 
-  /// Loads search results for the Home action/chip query.
-  ///
-  /// Behavior:
-  /// - if query has near-me intent, request current location
-  /// - otherwise run normal smart search
   Future<void> _loadResults() async {
     setState(() {
       _isLoading = true;
@@ -611,11 +611,11 @@ class _QuickSearchResultsScreenState extends State<_QuickSearchResultsScreen> {
 
         if (location == null) {
           if (!mounted) return;
+
           setState(() {
             _isLoading = false;
             _results = [];
-            _errorMessage =
-            'Please enable current location for nearby search.';
+            _errorMessage = 'Please enable current location for nearby search.';
           });
           return;
         }
@@ -640,6 +640,7 @@ class _QuickSearchResultsScreenState extends State<_QuickSearchResultsScreen> {
       });
     } catch (_) {
       if (!mounted) return;
+
       setState(() {
         _isLoading = false;
         _results = [];
@@ -684,7 +685,6 @@ class _QuickSearchResultsScreenState extends State<_QuickSearchResultsScreen> {
     );
   }
 
-  /// Builds a centered message card for empty/error states.
   Widget _buildMessageCard(String message) {
     return Center(
       child: Padding(
@@ -712,11 +712,12 @@ class _QuickSearchResultsScreenState extends State<_QuickSearchResultsScreen> {
   }
 }
 
-/// Compact result card for quick searches launched from Home.
 class _QuickSearchResultCard extends StatelessWidget {
   final SearchResultModel item;
 
-  const _QuickSearchResultCard({required this.item});
+  const _QuickSearchResultCard({
+    required this.item,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -736,37 +737,45 @@ class _QuickSearchResultCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: AppTheme.shadowXs,
         ),
-        child: Column(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              item.itemName,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: AppTheme.offWhite,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(
+                Icons.restaurant_menu_rounded,
                 color: AppTheme.ink,
               ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              item.restaurantName,
-              style: const TextStyle(
-                fontSize: 14,
-                color: AppTheme.slate,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                const Icon(
-                  Icons.location_on_outlined,
-                  size: 15,
-                  color: AppTheme.stone,
-                ),
-                const SizedBox(width: 5),
-                Expanded(
-                  child: Text(
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.itemName,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    item.restaurantName,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.slate,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
                     [item.areaName, item.city]
                         .where((e) => e.trim().isNotEmpty)
                         .join(', '),
@@ -775,24 +784,8 @@ class _QuickSearchResultCard extends StatelessWidget {
                       color: AppTheme.stone,
                     ),
                   ),
-                ),
-                if (item.avgItemRating != null) ...[
-                  const Icon(
-                    Icons.star_rounded,
-                    size: 16,
-                    color: Color(0xFFFF9F0A),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    item.avgItemRating!.toStringAsFixed(1),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.ink,
-                    ),
-                  ),
                 ],
-              ],
+              ),
             ),
           ],
         ),

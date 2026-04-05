@@ -4,11 +4,6 @@ import '../../models/admin_suggestion_model.dart';
 import '../../services/admin_service.dart';
 import '../../theme/app_theme.dart';
 
-/// Admin detail screen for one pending suggestion.
-///
-/// Purpose:
-/// - let admin inspect full suggestion details before moderation
-/// - keep visual style close to item detail screen
 class PendingSuggestionDetailScreen extends StatefulWidget {
   final AdminSuggestionModel item;
 
@@ -37,59 +32,100 @@ class _PendingSuggestionDetailScreenState
       await _adminService.approveSuggestionAsNew(widget.item.id);
 
       if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Suggestion approved successfully.'),
-        ),
-      );
-
       Navigator.of(context).pop(true);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
 
       setState(() {
         _isProcessing = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not approve suggestion.'),
-        ),
+      await _showMessageDialog(
+        title: 'Could not approve suggestion',
+        message: e.toString().replaceFirst('Exception: ', ''),
       );
     }
   }
 
   Future<void> _reject() async {
+    final TextEditingController reasonController = TextEditingController();
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Reject suggestion'),
+          content: TextField(
+            controller: reasonController,
+            minLines: 2,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              hintText: 'Optional rejection reason',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Reject'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
     setState(() {
       _isProcessing = true;
     });
 
     try {
-      await _adminService.rejectSuggestion(widget.item.id);
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Suggestion rejected.'),
-        ),
+      await _adminService.rejectSuggestion(
+        widget.item.id,
+        rejectionReason: reasonController.text,
       );
 
+      if (!mounted) return;
       Navigator.of(context).pop(true);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
 
       setState(() {
         _isProcessing = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not reject suggestion.'),
-        ),
+      await _showMessageDialog(
+        title: 'Could not reject suggestion',
+        message: e.toString().replaceFirst('Exception: ', ''),
       );
     }
+  }
+
+  Future<void> _showMessageDialog({
+    required String title,
+    required String message,
+  }) {
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -414,9 +450,7 @@ class _PendingSuggestionDetailScreenState
           ),
           const SizedBox(height: 10),
           Text(
-            item.note.trim().isNotEmpty
-                ? item.note
-                : 'No note added by user.',
+            item.note.trim().isNotEmpty ? item.note : 'No note added by user.',
             style: const TextStyle(
               fontSize: 14,
               color: AppTheme.slate,
