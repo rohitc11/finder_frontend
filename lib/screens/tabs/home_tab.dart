@@ -264,29 +264,46 @@ class HomeTab extends StatelessWidget {
   /// - only Best Near Me is enabled for now
   /// - Top Rated and Must Try remain visible but disabled until rating/ranking is ready
   Widget _buildQuickActions(BuildContext context) {
-    final actions = [
-      _QuickActionData(
-        label: 'Best Near Me',
-        icon: Icons.near_me_rounded,
-        subtitle: 'Find standout dishes nearby',
-        query: 'near me',
-        isEnabled: FeatureFlags.isBestNearMeQuickActionEnabled,
-      ),
-      _QuickActionData(
-        label: 'Top Rated',
-        icon: Icons.star_rounded,
-        subtitle: 'Search best-rated dishes',
-        query: 'best',
-        isEnabled: FeatureFlags.isTopRatedQuickActionEnabled,
-      ),
-      _QuickActionData(
-        label: 'Must Try',
-        icon: Icons.local_fire_department_rounded,
-        subtitle: 'Explore famous food picks',
-        query: 'must try',
-        isEnabled: FeatureFlags.isMustTryQuickActionEnabled,
-      ),
-    ];
+    final List<_QuickActionData> actions = [];
+
+    // Add only enabled actions
+    if (FeatureFlags.isBestNearMeQuickActionEnabled) {
+      actions.add(
+        _QuickActionData(
+          label: 'Best Near Me',
+          icon: Icons.near_me_rounded,
+          subtitle: 'Find standout dishes nearby',
+          query: 'near me',
+        ),
+      );
+    }
+
+    if (FeatureFlags.isTopRatedQuickActionEnabled) {
+      actions.add(
+        _QuickActionData(
+          label: 'Top Rated',
+          icon: Icons.star_rounded,
+          subtitle: 'Search best-rated dishes',
+          query: 'best',
+        ),
+      );
+    }
+
+    if (FeatureFlags.isMustTryQuickActionEnabled) {
+      actions.add(
+        _QuickActionData(
+          label: 'Must Try',
+          icon: Icons.local_fire_department_rounded,
+          subtitle: 'Explore famous food picks',
+          query: 'must try',
+        ),
+      );
+    }
+
+    // Safety fallback (in case all are false)
+    if (actions.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return Row(
       children: actions
@@ -308,55 +325,46 @@ class HomeTab extends StatelessWidget {
       BuildContext context,
       _QuickActionData action,
       ) {
-    final Color iconColor = action.isEnabled ? AppTheme.ink : AppTheme.pebble;
-    final Color titleColor = action.isEnabled ? AppTheme.ink : AppTheme.pebble;
-    final Color subtitleColor = action.isEnabled ? AppTheme.stone : AppTheme.silver;
-
     return InkWell(
-      onTap: action.isEnabled
-          ? () {
+      onTap: () {
         _openQuickSearchResults(
           context,
           title: action.label,
           query: action.query,
         );
-      }
-          : null,
+      },
       borderRadius: BorderRadius.circular(14),
-      child: Opacity(
-        opacity: action.isEnabled ? 1 : 0.65,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
-          decoration: BoxDecoration(
-            color: AppTheme.snow,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: AppTheme.shadowXs,
-          ),
-          child: Column(
-            children: [
-              Icon(action.icon, color: iconColor, size: 22),
-              const SizedBox(height: 10),
-              Text(
-                action.label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: titleColor,
-                ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
+        decoration: BoxDecoration(
+          color: AppTheme.snow,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: AppTheme.shadowXs,
+        ),
+        child: Column(
+          children: [
+            Icon(action.icon, color: AppTheme.ink, size: 22),
+            const SizedBox(height: 10),
+            Text(
+              action.label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.ink,
               ),
-              const SizedBox(height: 6),
-              Text(
-                action.isEnabled ? action.subtitle : 'Coming soon',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: subtitleColor,
-                  height: 1.3,
-                ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              action.subtitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppTheme.stone,
+                height: 1.3,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -529,14 +537,12 @@ class _QuickActionData {
   final IconData icon;
   final String subtitle;
   final String query;
-  final bool isEnabled;
 
   _QuickActionData({
     required this.label,
     required this.icon,
     required this.subtitle,
     required this.query,
-    required this.isEnabled,
   });
 }
 
