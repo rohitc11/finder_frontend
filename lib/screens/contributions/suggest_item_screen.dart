@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../config/user_session.dart';
 import '../../services/contribution_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/responsive.dart';
 import '../../services/location_service.dart';
 import '../../config/feature_flags.dart';
 
@@ -206,9 +207,10 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
       ),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-        child: SizedBox(
-          height: 54,
-          child: ElevatedButton(
+        child: centeredContent(
+          SizedBox(
+            height: 54,
+            child: ElevatedButton(
             onPressed: _isSubmitting ? null : _submit,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.accent,
@@ -238,11 +240,17 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
           ),
         ),
       ),
+    ),
       body: SafeArea(
         child: Form(
           key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final sidePad = constraints.maxWidth >= kDesktopBreakpoint
+                  ? (constraints.maxWidth - kMaxContentWidth) / 2 + 20
+                  : 20.0;
+              return ListView(
+            padding: EdgeInsets.fromLTRB(sidePad, 8, sidePad, 24),
             physics: const BouncingScrollPhysics(),
             children: [
               _buildHeroCard(),
@@ -520,9 +528,11 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
                 ],
               ),
             ],
-          ),
+          );
+        },
         ),
       ),
+    ),
     );
   }
 

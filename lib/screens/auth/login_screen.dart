@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/responsive.dart';
 import '../home_screen.dart';
 import 'register_screen.dart';
 
@@ -99,73 +100,81 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 20),
-            _buildField(
-              controller: _emailOrPhoneController,
-              label: 'Email or phone number',
-              hint: 'Enter email or phone',
-            ),
-            const SizedBox(height: 14),
-            _buildField(
-              controller: _passwordController,
-              label: 'Password',
-              hint: 'Enter password',
-              obscureText: true,
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              height: 52,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _login,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.accent,
-                  foregroundColor: AppTheme.snow,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+        child: SingleChildScrollView(
+          child: centeredContent(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildHeader(),
+                  const SizedBox(height: 20),
+                  _buildField(
+                    controller: _emailOrPhoneController,
+                    label: 'Email or phone number',
+                    hint: 'Enter email or phone',
                   ),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                  height: 18,
-                  width: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
+                  const SizedBox(height: 14),
+                  _buildField(
+                    controller: _passwordController,
+                    label: 'Password',
+                    hint: 'Enter password',
+                    obscureText: true,
                   ),
-                )
-                    : const Text(
-                  'Login',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _login,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.accent,
+                        foregroundColor: AppTheme.snow,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 18,
+                              width: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Login',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  TextButton(
+                    onPressed: () async {
+                      final created = await Navigator.of(context).push<bool>(
+                        MaterialPageRoute(
+                          builder: (_) => const RegisterScreen(),
+                        ),
+                      );
+
+                      if (created == true && mounted) {
+                        if (widget.replaceCurrent) {
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(
+                                builder: (_) => const HomeScreen()),
+                            (route) => false,
+                          );
+                        } else {
+                          Navigator.of(context).pop(true);
+                        }
+                      }
+                    },
+                    child: const Text('Create new account'),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 18),
-            TextButton(
-              onPressed: () async {
-                final created = await Navigator.of(context).push<bool>(
-                  MaterialPageRoute(
-                    builder: (_) => const RegisterScreen(),
-                  ),
-                );
-
-                if (created == true && mounted) {
-                  if (widget.replaceCurrent) {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const HomeScreen()),
-                          (route) => false,
-                    );
-                  } else {
-                    Navigator.of(context).pop(true);
-                  }
-                }
-              },
-              child: const Text('Create new account'),
-            ),
-          ],
+          ),
         ),
       ),
     );

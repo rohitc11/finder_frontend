@@ -10,6 +10,7 @@ import '../services/item_service.dart';
 import '../services/review_service.dart';
 import '../services/user_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/responsive.dart';
 import 'auth/login_screen.dart';
 import 'reviews/write_review_bottom_sheet.dart';
 
@@ -265,33 +266,35 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   }
 
   Widget _buildBody(BuildContext context, ItemModel? item) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHeroCard(context, item),
-          const SizedBox(height: 20),
-          _buildMetaChips(item),
-          const SizedBox(height: 20),
-          _buildInfoCards(context, item),
-          const SizedBox(height: 20),
-          _buildLocationCard(context, item),
-          const SizedBox(height: 20),
-          _buildDescriptionCard(context, item),
-          const SizedBox(height: 20),
-          _buildWriteReviewCard(context),
-          const SizedBox(height: 20),
-          _buildReviewsSection(context),
-          if (_isLoading) ...[
+    return centeredContent(
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeroCard(context, item),
             const SizedBox(height: 20),
-            _buildLoadingCard(context),
-          ],
-          if (!_isLoading && item == null) ...[
+            _buildMetaChips(item),
             const SizedBox(height: 20),
-            _buildErrorCard(context),
+            _buildInfoCards(context, item),
+            const SizedBox(height: 20),
+            _buildLocationCard(context, item),
+            const SizedBox(height: 20),
+            _buildDescriptionCard(context, item),
+            const SizedBox(height: 20),
+            _buildWriteReviewCard(context),
+            const SizedBox(height: 20),
+            _buildReviewsSection(context),
+            if (_isLoading) ...[
+              const SizedBox(height: 20),
+              _buildLoadingCard(context),
+            ],
+            if (!_isLoading && item == null) ...[
+              const SizedBox(height: 20),
+              _buildErrorCard(context),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

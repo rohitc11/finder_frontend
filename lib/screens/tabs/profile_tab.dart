@@ -8,6 +8,7 @@ import '../../services/bucket_list_service.dart';
 import '../../services/contribution_service.dart';
 import '../../services/user_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/responsive.dart';
 import '../auth/login_screen.dart';
 import '../contributions/my_contributions_screen.dart';
 import '../contributions/suggest_item_screen.dart';
@@ -141,22 +142,26 @@ class _ProfileTabState extends State<ProfileTab> {
           color: AppTheme.accent,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildProfileHeader(),
-                const SizedBox(height: 18),
-                _buildTopStats(),
-                const SizedBox(height: 18),
-                _buildAddItemCard(context),
-                const SizedBox(height: 18),
-                _buildImpactCard(),
-                const SizedBox(height: 18),
-                _buildMenuCard(context),
-                const SizedBox(height: 18),
-                _buildLogoutButton(),
-              ],
+            child: centeredContent(
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildProfileHeader(),
+                    const SizedBox(height: 18),
+                    _buildTopStats(),
+                    const SizedBox(height: 18),
+                    _buildAddItemCard(context),
+                    const SizedBox(height: 18),
+                    _buildImpactCard(),
+                    const SizedBox(height: 18),
+                    _buildMenuCard(context),
+                    const SizedBox(height: 18),
+                    _buildLogoutButton(),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -169,10 +174,12 @@ class _ProfileTabState extends State<ProfileTab> {
       backgroundColor: AppTheme.fog,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          child: centeredContent(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
               Text(
                 'Profile',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -346,6 +353,8 @@ class _ProfileTabState extends State<ProfileTab> {
           ),
         ),
       ),
+    ),
+  ),
     );
   }
 
