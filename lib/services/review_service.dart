@@ -6,9 +6,7 @@ import '../config/api_config.dart';
 import '../config/user_session.dart';
 import '../models/review_model.dart';
 
-/// Service responsible for review-related backend APIs.
 class ReviewService {
-  /// Fetch reviews for one item.
   Future<List<ReviewModel>> fetchReviewsByItem(String itemId) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/reviews/item/$itemId');
     final response = await http.get(uri);
@@ -23,7 +21,6 @@ class ReviewService {
         .toList();
   }
 
-  /// Add review for current logged-in user.
   Future<void> addItemReview({
     required String itemId,
     required int rating,

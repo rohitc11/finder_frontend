@@ -1,18 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-import '../../config/user_session.dart';
 import '../../models/user_model.dart';
 import '../../services/review_service.dart';
 import '../../theme/app_theme.dart';
-import 'package:flutter/services.dart';
 
-/// Bottom sheet used to create a review for an item.
-///
-/// UX goals:
-/// - very quick review submission
-/// - rating first
-/// - 3/4 ready-made comment suggestions
-/// - optional short manual comment
 class WriteReviewBottomSheet extends StatefulWidget {
   final String itemId;
   final String itemName;
@@ -97,10 +89,9 @@ class _WriteReviewBottomSheetState extends State<WriteReviewBottomSheet> {
     if (_selectedRating == 0 || _isSubmitting) return;
 
     if (_wordCount > _maxWords) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Review comment can have at most 20 words.'),
-        ),
+      await _showMessageDialog(
+        title: 'Review too long',
+        message: 'Review comment can have at most 20 words.',
       );
       return;
     }
@@ -120,18 +111,37 @@ class _WriteReviewBottomSheetState extends State<WriteReviewBottomSheet> {
       Navigator.of(context).pop(true);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not submit review. Please try again.'),
-        ),
+
+      setState(() {
+        _isSubmitting = false;
+      });
+
+      await _showMessageDialog(
+        title: 'Could not submit review',
+        message: 'Please try again later.',
       );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
     }
+  }
+
+  Future<void> _showMessageDialog({
+    required String title,
+    required String message,
+  }) {
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -174,7 +184,9 @@ class _WriteReviewBottomSheetState extends State<WriteReviewBottomSheet> {
                 children: List.generate(5, (index) {
                   final star = index + 1;
                   return IconButton(
-                    onPressed: () {
+                    onPressed: _isSubmitting
+                        ? null
+                        : () {
                       setState(() {
                         _selectedRating = star;
                         _selectedSuggestion = null;
@@ -208,7 +220,9 @@ class _WriteReviewBottomSheetState extends State<WriteReviewBottomSheet> {
                   return ChoiceChip(
                     label: Text(suggestion),
                     selected: selected,
-                    onSelected: (_) => _applySuggestion(suggestion),
+                    onSelected: _isSubmitting
+                        ? null
+                        : (_) => _applySuggestion(suggestion),
                   );
                 }).toList(),
               ),
@@ -217,6 +231,7 @@ class _WriteReviewBottomSheetState extends State<WriteReviewBottomSheet> {
                 controller: _commentController,
                 minLines: 2,
                 maxLines: 3,
+                enabled: !_isSubmitting,
                 inputFormatters: [
                   WordLimitTextInputFormatter(maxWords: _maxWords),
                 ],
@@ -241,15 +256,18 @@ class _WriteReviewBottomSheetState extends State<WriteReviewBottomSheet> {
                 '$_wordCount / $_maxWords words',
                 style: TextStyle(
                   fontSize: 12,
-                  color:
-                  _wordCount > _maxWords ? AppTheme.error : AppTheme.stone,
+                  color: _wordCount > _maxWords
+                      ? AppTheme.error
+                      : AppTheme.stone,
                 ),
               ),
               const SizedBox(height: 18),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _isSubmitting ? null : _submit,
+                  onPressed: (_isSubmitting || _selectedRating == 0)
+                      ? null
+                      : _submit,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.accent,
                     foregroundColor: AppTheme.snow,
@@ -281,11 +299,6 @@ class _WriteReviewBottomSheetState extends State<WriteReviewBottomSheet> {
   }
 }
 
-/// Input formatter that prevents typing more than the allowed word count.
-///
-/// Why:
-/// - review comments are intentionally short for launch
-/// - prevents unnecessary long comments before submit
 class WordLimitTextInputFormatter extends TextInputFormatter {
   final int maxWords;
 
