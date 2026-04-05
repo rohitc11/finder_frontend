@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/admin_suggestion_model.dart';
+import '../../utils/responsive.dart';
 import '../../services/admin_service.dart';
 import '../../theme/app_theme.dart';
 
@@ -98,8 +99,12 @@ class _PendingSuggestionDetailScreenState
 
     return Scaffold(
       backgroundColor: AppTheme.fog,
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
         slivers: [
           SliverAppBar(
             pinned: true,
@@ -132,10 +137,13 @@ class _PendingSuggestionDetailScreenState
           ),
         ],
       ),
+      ),
+    ),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-        child: Row(
-          children: [
+        child: centeredContent(
+          Row(
+            children: [
             Expanded(
               child: OutlinedButton(
                 onPressed: _isProcessing ? null : () => Navigator.of(context).pop(),
@@ -199,6 +207,7 @@ class _PendingSuggestionDetailScreenState
               ),
             ),
           ],
+          ),
         ),
       ),
     );

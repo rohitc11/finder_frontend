@@ -5,6 +5,7 @@ import '../../models/user_profile_summary_model.dart';
 import '../../models/user_suggestion_model.dart';
 import '../../services/contribution_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/responsive.dart';
 import 'suggest_item_screen.dart';
 import '../../config/feature_flags.dart';
 
@@ -135,32 +136,39 @@ class _MyContributionsScreenState extends State<MyContributionsScreen> {
           onRefresh: _loadData,
           color: AppTheme.accent,
 
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints:
+                  const BoxConstraints(maxWidth: kMaxContentWidth),
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(),
 
-            slivers: [
-              /// Header section (title + description)
-              SliverToBoxAdapter(child: _buildHeader()),
+                slivers: [
+                  /// Header section (title + description)
+                  SliverToBoxAdapter(child: _buildHeader()),
 
-              /// Reward points + stats summary
-              SliverToBoxAdapter(
-                  child: _buildSummaryCards(_summary!)),
+                  /// Reward points + stats summary
+                  SliverToBoxAdapter(
+                      child: _buildSummaryCards(_summary!)),
 
-              /// Additional quick insights (approval rate etc.)
-              SliverToBoxAdapter(
-                  child: _buildQuickInsights(_summary!)),
+                  /// Additional quick insights (approval rate etc.)
+                  SliverToBoxAdapter(
+                      child: _buildQuickInsights(_summary!)),
 
-              /// Filter chips (All / Pending / Approved / Rejected)
-              SliverToBoxAdapter(child: _buildFilterRow()),
+                  /// Filter chips (All / Pending / Approved / Rejected)
+                  SliverToBoxAdapter(child: _buildFilterRow()),
 
-              /// Suggestions list
-              _buildSuggestionList(),
+                  /// Suggestions list
+                  _buildSuggestionList(),
 
-              /// Bottom spacing (important for FAB overlap)
-              const SliverToBoxAdapter(
-                child: SizedBox(height: 120),
+                  /// Bottom spacing (important for FAB overlap)
+                  const SliverToBoxAdapter(
+                    child: SizedBox(height: 120),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -177,9 +185,10 @@ class _MyContributionsScreenState extends State<MyContributionsScreen> {
         ? 'Track your food suggestions, reward points, and moderation status.'
         : 'Track your food suggestions and moderation status.';
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-      child: Column(
+    return centeredContent(
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
@@ -197,6 +206,7 @@ class _MyContributionsScreenState extends State<MyContributionsScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 

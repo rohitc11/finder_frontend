@@ -5,6 +5,7 @@ import '../../models/bucket_list_item_model.dart';
 import '../../models/search_result_model.dart';
 import '../../services/bucket_list_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/responsive.dart';
 import '../auth/login_screen.dart';
 import '../item_detail_screen.dart';
 
@@ -169,10 +170,12 @@ class SavedTabState extends State<SavedTab> {
       backgroundColor: AppTheme.fog,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          child: centeredContent(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
               if (widget.showInternalHeader) _buildHeader(context),
               if (widget.showInternalHeader) const SizedBox(height: 12),
               const Text(
@@ -300,6 +303,8 @@ class SavedTabState extends State<SavedTab> {
           ),
         ),
       ),
+    ),
+  ),
     );
   }
 
@@ -388,8 +393,11 @@ class SavedTabState extends State<SavedTab> {
   Widget _buildSavedItemsList() {
     return RefreshIndicator(
       onRefresh: _loadSavedItems,
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
         itemCount: _savedItems.length,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
@@ -458,6 +466,8 @@ class SavedTabState extends State<SavedTab> {
             ),
           );
         },
+      ),
+        ),
       ),
     );
   }
