@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Holds current authenticated session for the app.
@@ -7,6 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// - persist session locally
 /// - expose simple helpers for login/logout checks
 class UserSession {
+  static final ValueNotifier<int> sessionVersion = ValueNotifier<int>(0);
+
   static String? token;
   static String? userId;
   static String? name;
@@ -26,6 +29,8 @@ class UserSession {
     email = prefs.getString('auth_email');
     phoneNumber = prefs.getString('auth_phone');
     role = prefs.getString('auth_role');
+
+    _notifySessionChanged();
   }
 
   /// Saves a new logged-in session locally and in memory.
@@ -52,6 +57,8 @@ class UserSession {
     await prefs.setString('auth_email', emailValue ?? '');
     await prefs.setString('auth_phone', phoneNumberValue ?? '');
     await prefs.setString('auth_role', roleValue ?? '');
+
+    _notifySessionChanged();
   }
 
   /// Clears current session on logout.
@@ -71,6 +78,8 @@ class UserSession {
     await prefs.remove('auth_email');
     await prefs.remove('auth_phone');
     await prefs.remove('auth_role');
+
+    _notifySessionChanged();
   }
 
   /// Returns auth header map for protected APIs.
@@ -79,5 +88,9 @@ class UserSession {
     return {
       'Authorization': 'Bearer $token',
     };
+  }
+
+  static void _notifySessionChanged() {
+    sessionVersion.value++;
   }
 }

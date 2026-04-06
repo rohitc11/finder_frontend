@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../router/app_router.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/seo_meta.dart';
 import '../../utils/responsive.dart';
 
 /// Registration screen for launch.
@@ -26,6 +28,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _passwordController = TextEditingController();
 
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    updateSeoMeta(
+      title: 'Create Account | Finder',
+      description:
+          'Create a Finder account to save dishes, contribute food discoveries, and write reviews.',
+      robots: 'noindex,nofollow',
+    );
+  }
 
   Future<void> _register() async {
     final name = _nameController.text.trim();
@@ -59,7 +72,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       if (!mounted) return;
-      Navigator.of(context).pop(true);
+
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop(true);
+      } else {
+        AppRouter.goHome(context);
+      }
     } catch (e) {
       if (!mounted) return;
       _showSnack(e.toString().replaceFirst('Exception: ', ''));

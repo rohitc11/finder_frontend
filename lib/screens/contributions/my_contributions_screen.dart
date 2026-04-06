@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../config/user_session.dart';
 import '../../models/user_profile_summary_model.dart';
 import '../../models/user_suggestion_model.dart';
+import '../../router/app_router.dart';
 import '../../services/contribution_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/responsive.dart';
@@ -28,14 +29,53 @@ class _MyContributionsScreenState extends State<MyContributionsScreen> {
   UserProfileSummaryModel? _summary;
   List<UserSuggestionModel> _suggestions = [];
   SuggestionStatus? _selectedFilter;
+  int _activeLoadId = 0;
 
   @override
   void initState() {
     super.initState();
+    UserSession.sessionVersion.addListener(_handleSessionChanged);
     _loadData();
   }
 
+  @override
+  void dispose() {
+    UserSession.sessionVersion.removeListener(_handleSessionChanged);
+    super.dispose();
+  }
+
+  void _handleSessionChanged() {
+    if (!mounted) return;
+
+    if (!UserSession.isLoggedIn) {
+      _clearContributionState();
+      return;
+    }
+
+    _loadData();
+  }
+
+  void _clearContributionState() {
+    _activeLoadId++;
+
+    setState(() {
+      _isLoading = false;
+      _summary = null;
+      _suggestions = [];
+      _selectedFilter = null;
+    });
+  }
+
   Future<void> _loadData() async {
+    if (!UserSession.isLoggedIn) {
+      if (mounted) {
+        _clearContributionState();
+      }
+      return;
+    }
+
+    final loadId = ++_activeLoadId;
+
     setState(() => _isLoading = true);
 
     try {
@@ -44,7 +84,9 @@ class _MyContributionsScreenState extends State<MyContributionsScreen> {
         _contributionService.fetchUserSuggestions(),
       ]);
 
-      if (!mounted) return;
+      if (!mounted || !UserSession.isLoggedIn || loadId != _activeLoadId) {
+        return;
+      }
 
       setState(() {
         _summary = results[0] as UserProfileSummaryModel;
@@ -57,12 +99,8 @@ class _MyContributionsScreenState extends State<MyContributionsScreen> {
         _isLoading = false;
       });
     } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _summary = null;
-        _suggestions = [];
-        _isLoading = false;
-      });
+      if (!mounted || loadId != _activeLoadId) return;
+      _clearContributionState();
     }
   }
 
@@ -72,11 +110,24 @@ class _MyContributionsScreenState extends State<MyContributionsScreen> {
   }
 
   Future<void> _openSuggestItem() async {
+    if (!UserSession.isLoggedIn) {
+      await _openLogin();
+      return;
+    }
+
     final created = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => const SuggestItemScreen()),
     );
 
     if (created == true) {
+      await _loadData();
+    }
+  }
+
+  Future<void> _openLogin() async {
+    final bool? loggedIn = await AppRouter.openLogin(context);
+
+    if (loggedIn == true && mounted) {
       await _loadData();
     }
   }
@@ -123,7 +174,9 @@ class _MyContributionsScreenState extends State<MyContributionsScreen> {
 
       /// 🔹 Main body content
       body: SafeArea(
-        child: _isLoading
+        child: !UserSession.isLoggedIn
+            ? _buildLoggedOutState()
+            : _isLoading
             ? _buildLoading()
 
         /// Error state (API failed / no data)
@@ -168,6 +221,67 @@ class _MyContributionsScreenState extends State<MyContributionsScreen> {
                   ),
                 ],
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoggedOutState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppTheme.snow,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: AppTheme.shadowSm,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Login required',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.ink,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Login to view your contribution summary and suggestion history.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.stone,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _openLogin,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.accent,
+                      foregroundColor: AppTheme.snow,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text(
+                      'Login',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),

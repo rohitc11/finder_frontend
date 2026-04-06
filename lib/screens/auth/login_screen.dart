@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../config/dev_login_defaults.dart';
+import '../../router/app_router.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/seo_meta.dart';
 import '../../utils/responsive.dart';
-import '../home_screen.dart';
-import 'register_screen.dart';
 
 /// Login screen for Finder.
 ///
@@ -27,11 +28,38 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final AuthService _authService = AuthService();
 
-  final TextEditingController _emailOrPhoneController =
-  TextEditingController();
+  final TextEditingController _emailOrPhoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLocalDefaults();
+    updateSeoMeta(
+      title: 'Login | Finder',
+      description:
+          'Login to Finder to save items, write reviews, and manage your food discovery profile.',
+      robots: 'noindex,nofollow',
+    );
+  }
+
+  Future<void> _loadLocalDefaults() async {
+    final prefill = await DevLoginDefaults.load();
+
+    if (!mounted) {
+      return;
+    }
+
+    if (_emailOrPhoneController.text.trim().isEmpty) {
+      _emailOrPhoneController.text = prefill.identifier;
+    }
+
+    if (_passwordController.text.trim().isEmpty) {
+      _passwordController.text = prefill.password;
+    }
+  }
 
   Future<void> _login() async {
     final identifier = _emailOrPhoneController.text.trim();
@@ -53,15 +81,17 @@ class _LoginScreenState extends State<LoginScreen> {
         password: password,
       );
 
+      await DevLoginDefaults.saveLastUsed(
+        identifier: identifier,
+        password: password,
+      );
+
       if (!mounted) return;
 
-      if (widget.replaceCurrent) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-              (route) => false,
-        );
-      } else {
+      if (!widget.replaceCurrent && Navigator.of(context).canPop()) {
         Navigator.of(context).pop(true);
+      } else {
+        AppRouter.goHome(context);
       }
     } catch (_) {
       if (!mounted) return;
@@ -151,22 +181,17 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 18),
                   TextButton(
                     onPressed: () async {
-                      final created = await Navigator.of(context).push<bool>(
-                        MaterialPageRoute(
-                          builder: (_) => const RegisterScreen(),
-                        ),
-                      );
+                      final navigator = Navigator.of(context);
+                      final created = await AppRouter.openRegister(context);
 
-                      if (created == true && mounted) {
-                        if (widget.replaceCurrent) {
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(
-                                builder: (_) => const HomeScreen()),
-                            (route) => false,
-                          );
-                        } else {
-                          Navigator.of(context).pop(true);
-                        }
+                      if (!context.mounted || created != true) {
+                        return;
+                      }
+
+                      if (!widget.replaceCurrent && navigator.canPop()) {
+                        navigator.pop(true);
+                      } else {
+                        AppRouter.goHome(context);
                       }
                     },
                     child: const Text('Create new account'),

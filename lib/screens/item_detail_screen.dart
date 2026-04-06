@@ -6,12 +6,13 @@ import '../models/item_model.dart';
 import '../models/review_model.dart';
 import '../models/search_result_model.dart';
 import '../models/user_model.dart';
+import '../router/app_router.dart';
 import '../services/item_service.dart';
 import '../services/review_service.dart';
 import '../services/user_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/responsive.dart';
-import 'auth/login_screen.dart';
+import '../utils/seo_meta.dart';
 import 'reviews/write_review_bottom_sheet.dart';
 
 /// Item detail screen.
@@ -22,12 +23,16 @@ import 'reviews/write_review_bottom_sheet.dart';
 /// - fetch full item details from backend for richer UI
 /// - act as home for reviews and contribution info
 class ItemDetailScreen extends StatefulWidget {
-  final SearchResultModel summary;
+  final SearchResultModel? summary;
+  final String? itemId;
 
   const ItemDetailScreen({
     super.key,
-    required this.summary,
-  });
+    this.summary,
+    this.itemId,
+  }) : assert(summary != null || itemId != null);
+
+  String get resolvedItemId => summary?.itemId ?? itemId!;
 
   @override
   State<ItemDetailScreen> createState() => _ItemDetailScreenState();
@@ -43,8 +48,23 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
   bool _isReviewsLoading = true;
   bool _isLoading = true;
+  int _currentUserLoadId = 0;
 
   ItemModel? _item;
+
+  String get _fallbackItemName => widget.summary?.itemName ?? 'Item details';
+
+  String get _fallbackRestaurantName => widget.summary?.restaurantName ?? '';
+
+  String get _fallbackAreaName => widget.summary?.areaName ?? '';
+
+  String get _fallbackCity => widget.summary?.city ?? '';
+
+  double? get _fallbackRating => widget.summary?.avgItemRating;
+
+  int? get _fallbackRatingCount => widget.summary?.ratingCount;
+
+  double? get _fallbackDistanceInKm => widget.summary?.distanceInKm;
 
   bool get _hasCurrentUserReviewed {
     if (_currentUser == null) return false;
@@ -54,7 +74,41 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   @override
   void initState() {
     super.initState();
+    UserSession.sessionVersion.addListener(_handleSessionChanged);
+    updateSeoMeta(
+      title: '$_fallbackItemName | Finder',
+      description:
+          'View ratings, reviews, and location details for $_fallbackItemName on Finder.',
+      robots: 'index,follow',
+    );
+    removeStructuredData('finder-item-ld');
     _loadInitialData();
+  }
+
+  @override
+  void dispose() {
+    UserSession.sessionVersion.removeListener(_handleSessionChanged);
+    removeStructuredData('finder-item-ld');
+    super.dispose();
+  }
+
+  void _handleSessionChanged() {
+    if (!mounted) return;
+
+    if (!UserSession.isLoggedIn) {
+      _clearCurrentUser();
+      return;
+    }
+
+    _loadCurrentUser();
+  }
+
+  void _clearCurrentUser() {
+    _currentUserLoadId++;
+
+    setState(() {
+      _currentUser = null;
+    });
   }
 
   Future<void> _loadInitialData() async {
@@ -67,31 +121,34 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
   Future<void> _loadCurrentUser() async {
     if (!UserSession.isLoggedIn) {
-      if (!mounted) return;
-      setState(() {
-        _currentUser = null;
-      });
+      if (mounted) {
+        _clearCurrentUser();
+      }
       return;
     }
+
+    final loadId = ++_currentUserLoadId;
 
     try {
       final user = await _userService.fetchCurrentUser();
 
-      if (!mounted) return;
+      if (!mounted || !UserSession.isLoggedIn || loadId != _currentUserLoadId) {
+        return;
+      }
+
       setState(() {
         _currentUser = user;
       });
     } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _currentUser = null;
-      });
+      if (!mounted || loadId != _currentUserLoadId) return;
+      _clearCurrentUser();
     }
   }
 
   Future<void> _loadReviews() async {
     try {
-      final reviews = await _reviewService.fetchReviewsByItem(widget.summary.itemId);
+      final reviews =
+          await _reviewService.fetchReviewsByItem(widget.resolvedItemId);
 
       if (!mounted) return;
       setState(() {
@@ -109,17 +166,15 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
   Future<void> _openWriteReviewSheet() async {
     if (!UserSession.isLoggedIn) {
-      final bool? loggedIn = await Navigator.of(context).push<bool>(
-        MaterialPageRoute(
-          builder: (_) => const LoginScreen(),
-        ),
-      );
+      final bool? loggedIn = await AppRouter.openLogin(context);
 
       if (loggedIn == true) {
         await _loadCurrentUser();
       } else {
         return;
       }
+
+      if (!mounted) return;
     }
 
     if (_currentUser == null) {
@@ -148,11 +203,13 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) => WriteReviewBottomSheet(
-        itemId: widget.summary.itemId,
-        itemName: _item?.itemName ?? widget.summary.itemName,
+        itemId: widget.resolvedItemId,
+        itemName: _item?.itemName ?? _fallbackItemName,
         user: _currentUser!,
       ),
     );
+
+    if (!mounted) return;
 
     if (created == true) {
       await Future.wait([
@@ -176,7 +233,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     });
 
     try {
-      final item = await _itemService.fetchItemById(widget.summary.itemId);
+      final item = await _itemService.fetchItemById(widget.resolvedItemId);
 
       if (!mounted) return;
 
@@ -184,6 +241,16 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
         _item = item;
         _isLoading = false;
       });
+
+      updateSeoMeta(
+        title: '${item.itemName} at ${item.restaurantName} | Finder',
+        description: _buildItemDescription(item),
+        robots: 'index,follow',
+      );
+      updateStructuredData(
+        id: 'finder-item-ld',
+        data: _buildItemStructuredData(item),
+      );
     } catch (_) {
       if (!mounted) return;
 
@@ -195,17 +262,17 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   }
 
   Future<void> _shareItem() async {
-    final itemName = _item?.itemName ?? widget.summary.itemName;
-    final restaurantName = _item?.restaurantName ?? widget.summary.restaurantName;
-    final areaName = (_item?.areaName ?? widget.summary.areaName).trim();
-    final city = (_item?.city ?? widget.summary.city).trim();
+    final itemName = _item?.itemName ?? _fallbackItemName;
+    final restaurantName = _item?.restaurantName ?? _fallbackRestaurantName;
+    final areaName = (_item?.areaName ?? _fallbackAreaName).trim();
+    final city = (_item?.city ?? _fallbackCity).trim();
 
     final locationText = [
       if (areaName.isNotEmpty) areaName,
       if (city.isNotEmpty) city,
     ].join(', ').trim();
 
-    final rating = _item?.avgItemRating ?? widget.summary.avgItemRating;
+    final rating = _item?.avgItemRating ?? _fallbackRating;
 
     final message = StringBuffer()
       ..writeln('Check out this standout dish on Finder')
@@ -228,6 +295,56 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     await Share.share(message.toString());
   }
 
+  String _buildItemDescription(ItemModel item) {
+    final locationParts = [
+      if (item.areaName.trim().isNotEmpty) item.areaName.trim(),
+      if (item.city.trim().isNotEmpty) item.city.trim(),
+    ];
+
+    final ratingText = item.avgItemRating != null
+        ? 'Rated ${item.avgItemRating!.toStringAsFixed(1)} by ${item.ratingCount ?? 0} reviewers.'
+        : 'Discover reviews and location details.';
+
+    final locationText = locationParts.isEmpty ? '' : ' in ${locationParts.join(', ')}';
+
+    return 'Explore ${item.itemName} at ${item.restaurantName}$locationText on Finder. $ratingText';
+  }
+
+  Map<String, Object?> _buildItemStructuredData(ItemModel item) {
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'MenuItem',
+      'name': item.itemName,
+      'description': _buildItemDescription(item),
+      'offers': item.price != null
+          ? {
+              '@type': 'Offer',
+              'price': item.price,
+              'priceCurrency': item.currency,
+              'availability': item.isAvailable
+                  ? 'https://schema.org/InStock'
+                  : 'https://schema.org/OutOfStock',
+            }
+          : null,
+      'provider': {
+        '@type': 'Restaurant',
+        'name': item.restaurantName,
+        'address': {
+          '@type': 'PostalAddress',
+          'addressLocality': item.city,
+          'streetAddress': item.areaName,
+        },
+      },
+      'aggregateRating': item.avgItemRating != null
+          ? {
+              '@type': 'AggregateRating',
+              'ratingValue': item.avgItemRating,
+              'reviewCount': item.ratingCount ?? 0,
+            }
+          : null,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final item = _item;
@@ -243,7 +360,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
             elevation: 0,
             iconTheme: const IconThemeData(color: AppTheme.ink),
             title: Text(
-              item?.itemName ?? widget.summary.itemName,
+              item?.itemName ?? _fallbackItemName,
               style: const TextStyle(
                 color: AppTheme.ink,
                 fontWeight: FontWeight.w700,
@@ -300,12 +417,12 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   }
 
   Widget _buildHeroCard(BuildContext context, ItemModel? item) {
-    final displayName = item?.itemName ?? widget.summary.itemName;
-    final displayRestaurant = item?.restaurantName ?? widget.summary.restaurantName;
-    final displayArea = item?.areaName ?? widget.summary.areaName;
-    final displayCity = item?.city ?? widget.summary.city;
-    final displayRating = item?.avgItemRating ?? widget.summary.avgItemRating;
-    final displayRatingCount = item?.ratingCount ?? widget.summary.ratingCount;
+    final displayName = item?.itemName ?? _fallbackItemName;
+    final displayRestaurant = item?.restaurantName ?? _fallbackRestaurantName;
+    final displayArea = item?.areaName ?? _fallbackAreaName;
+    final displayCity = item?.city ?? _fallbackCity;
+    final displayRating = item?.avgItemRating ?? _fallbackRating;
+    final displayRatingCount = item?.ratingCount ?? _fallbackRatingCount;
 
     return Container(
       width: double.infinity,
@@ -374,7 +491,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                 ),
               ),
               const Spacer(),
-              if (widget.summary.distanceInKm != null)
+              if (_fallbackDistanceInKm != null)
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
@@ -385,7 +502,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    '${widget.summary.distanceInKm!.toStringAsFixed(1)} km away',
+                    '${_fallbackDistanceInKm!.toStringAsFixed(1)} km away',
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -481,8 +598,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   }
 
   Widget _buildLocationCard(BuildContext context, ItemModel? item) {
-    final String area = (item?.areaName ?? widget.summary.areaName).trim();
-    final String city = (item?.city ?? widget.summary.city).trim();
+    final String area = (item?.areaName ?? _fallbackAreaName).trim();
+    final String city = (item?.city ?? _fallbackCity).trim();
     final double? latitude = item?.latitude;
     final double? longitude = item?.longitude;
 

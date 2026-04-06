@@ -64,3 +64,6 @@ DerivedData/
 
 # CocoaPods
 .pods/
+
+# Local developer login defaults
+**/.finder.local.json

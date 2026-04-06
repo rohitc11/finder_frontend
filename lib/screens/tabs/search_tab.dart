@@ -5,13 +5,12 @@ import 'package:flutter/material.dart';
 import '../../config/user_session.dart';
 import '../../models/search_result_model.dart';
 import '../../models/suggestion_model.dart';
+import '../../router/app_router.dart';
 import '../../services/bucket_list_service.dart';
 import '../../services/location_service.dart';
 import '../../services/search_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/responsive.dart';
-import '../auth/login_screen.dart';
-import '../item_detail_screen.dart';
 import '../contributions/suggest_item_screen.dart';
 
 /// Search tab of the application.
@@ -68,11 +67,7 @@ class _SearchTabState extends State<SearchTab> {
   /// Toggles bookmark state for a search result item.
   Future<void> _toggleBookmark(SearchResultModel result) async {
     if (!UserSession.isLoggedIn) {
-      final bool? loggedIn = await Navigator.of(context).push<bool>(
-        MaterialPageRoute(
-          builder: (_) => const LoginScreen(),
-        ),
-      );
+      final bool? loggedIn = await AppRouter.openLogin(context);
 
       if (loggedIn != true) {
         return;
@@ -537,11 +532,7 @@ class _SearchTabState extends State<SearchTab> {
 
         return InkWell(
           onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ItemDetailScreen(summary: result),
-              ),
-            );
+            AppRouter.openItem(context, result);
           },
           borderRadius: BorderRadius.circular(16),
           child: Container(
