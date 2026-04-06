@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../router/app_router.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/seo_meta.dart';
+import '../../utils/responsive.dart';
 
 /// Registration screen for launch.
 ///
@@ -25,6 +28,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _passwordController = TextEditingController();
 
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    updateSeoMeta(
+      title: 'Create Account | Finder',
+      description:
+          'Create a Finder account to save dishes, contribute food discoveries, and write reviews.',
+      robots: 'noindex,nofollow',
+    );
+  }
 
   Future<void> _register() async {
     final name = _nameController.text.trim();
@@ -58,7 +72,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       if (!mounted) return;
-      Navigator.of(context).pop(true);
+
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop(true);
+      } else {
+        AppRouter.goHome(context);
+      }
     } catch (e) {
       if (!mounted) return;
       _showSnack(e.toString().replaceFirst('Exception: ', ''));
@@ -98,63 +117,70 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          children: [
-            _buildIntroCard(),
-            const SizedBox(height: 18),
-            _buildField(
-              controller: _nameController,
-              label: 'Name',
-              hint: 'Enter your name',
-            ),
-            const SizedBox(height: 14),
-            _buildField(
-              controller: _emailController,
-              label: 'Email',
-              hint: 'Enter email',
-            ),
-            const SizedBox(height: 14),
-            _buildField(
-              controller: _phoneController,
-              label: 'Phone number',
-              hint: 'Enter phone number',
-            ),
-            const SizedBox(height: 14),
-            _buildField(
-              controller: _passwordController,
-              label: 'Password',
-              hint: 'Minimum 6 characters',
-              obscureText: true,
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              height: 52,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _register,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.accent,
-                  foregroundColor: AppTheme.snow,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+        child: SingleChildScrollView(
+          child: centeredContent(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildIntroCard(),
+                  const SizedBox(height: 18),
+                  _buildField(
+                    controller: _nameController,
+                    label: 'Name',
+                    hint: 'Enter your name',
                   ),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                  height: 18,
-                  width: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
+                  const SizedBox(height: 14),
+                  _buildField(
+                    controller: _emailController,
+                    label: 'Email',
+                    hint: 'Enter email',
                   ),
-                )
-                    : const Text(
-                  'Create account',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
+                  const SizedBox(height: 14),
+                  _buildField(
+                    controller: _phoneController,
+                    label: 'Phone number',
+                    hint: 'Enter phone number',
+                  ),
+                  const SizedBox(height: 14),
+                  _buildField(
+                    controller: _passwordController,
+                    label: 'Password',
+                    hint: 'Minimum 6 characters',
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _register,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.accent,
+                        foregroundColor: AppTheme.snow,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 18,
+                              width: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Create account',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
