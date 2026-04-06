@@ -5,12 +5,12 @@ import 'package:flutter/material.dart';
 import '../../config/user_session.dart';
 import '../../models/search_result_model.dart';
 import '../../models/suggestion_model.dart';
+import '../../router/app_router.dart';
 import '../../services/bucket_list_service.dart';
 import '../../services/location_service.dart';
 import '../../services/search_service.dart';
 import '../../theme/app_theme.dart';
-import '../auth/login_screen.dart';
-import '../item_detail_screen.dart';
+import '../../utils/responsive.dart';
 import '../contributions/suggest_item_screen.dart';
 
 /// Search tab of the application.
@@ -67,11 +67,7 @@ class _SearchTabState extends State<SearchTab> {
   /// Toggles bookmark state for a search result item.
   Future<void> _toggleBookmark(SearchResultModel result) async {
     if (!UserSession.isLoggedIn) {
-      final bool? loggedIn = await Navigator.of(context).push<bool>(
-        MaterialPageRoute(
-          builder: (_) => const LoginScreen(),
-        ),
-      );
+      final bool? loggedIn = await AppRouter.openLogin(context);
 
       if (loggedIn != true) {
         return;
@@ -311,16 +307,17 @@ class _SearchTabState extends State<SearchTab> {
   }
 
   Widget _buildSearchHeader(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        height: 54,
-        decoration: BoxDecoration(
-          color: AppTheme.snow,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: AppTheme.shadowSm,
-        ),
+    return centeredContent(
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          height: 54,
+          decoration: BoxDecoration(
+            color: AppTheme.snow,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: AppTheme.shadowSm,
+          ),
         child: Row(
           children: [
             if (_hasSearched)
@@ -365,6 +362,7 @@ class _SearchTabState extends State<SearchTab> {
           ],
         ),
       ),
+    ),
     );
   }
 
@@ -401,10 +399,12 @@ class _SearchTabState extends State<SearchTab> {
     ];
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: centeredContent(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           Text(
             'Search smarter',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -452,6 +452,8 @@ class _SearchTabState extends State<SearchTab> {
           ),
         ],
       ),
+        ),
+      ),
     );
   }
 
@@ -465,8 +467,11 @@ class _SearchTabState extends State<SearchTab> {
   }
 
   Widget _buildSuggestionsList() {
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
+        child: ListView.separated(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
       itemCount: _suggestions.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
@@ -509,12 +514,17 @@ class _SearchTabState extends State<SearchTab> {
           ),
         );
       },
+        ),
+      ),
     );
   }
 
   Widget _buildResultsList() {
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
+        child: ListView.separated(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
       itemCount: _results.length,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
@@ -522,11 +532,7 @@ class _SearchTabState extends State<SearchTab> {
 
         return InkWell(
           onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ItemDetailScreen(summary: result),
-              ),
-            );
+            AppRouter.openItem(context, result);
           },
           borderRadius: BorderRadius.circular(16),
           child: Container(
@@ -628,6 +634,8 @@ class _SearchTabState extends State<SearchTab> {
           ),
         );
       },
+        ),
+      ),
     );
   }
 

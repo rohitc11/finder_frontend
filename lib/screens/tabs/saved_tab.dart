@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import '../../config/user_session.dart';
 import '../../models/bucket_list_item_model.dart';
 import '../../models/search_result_model.dart';
+import '../../router/app_router.dart';
 import '../../services/bucket_list_service.dart';
 import '../../theme/app_theme.dart';
-import '../auth/login_screen.dart';
-import '../item_detail_screen.dart';
+import '../../utils/responsive.dart';
 
 class SavedTab extends StatefulWidget {
   final bool showInternalHeader;
@@ -25,18 +25,21 @@ class SavedTabState extends State<SavedTab> {
 
   List<BucketListItemModel> _savedItems = [];
   bool _isLoading = true;
+  int _activeLoadId = 0;
 
   void refreshSavedItems() {
     if (UserSession.isLoggedIn) {
       _loadSavedItems();
     } else {
-      setState(() {});
+      _clearSavedState();
     }
   }
 
   @override
   void initState() {
     super.initState();
+    UserSession.sessionVersion.addListener(_handleSessionChanged);
+
     if (UserSession.isLoggedIn) {
       _loadSavedItems();
     } else {
@@ -44,7 +47,42 @@ class SavedTabState extends State<SavedTab> {
     }
   }
 
+  @override
+  void dispose() {
+    UserSession.sessionVersion.removeListener(_handleSessionChanged);
+    super.dispose();
+  }
+
+  void _handleSessionChanged() {
+    if (!mounted) return;
+
+    if (!UserSession.isLoggedIn) {
+      _clearSavedState();
+      return;
+    }
+
+    _loadSavedItems();
+  }
+
+  void _clearSavedState() {
+    _activeLoadId++;
+
+    setState(() {
+      _savedItems = [];
+      _isLoading = false;
+    });
+  }
+
   Future<void> _loadSavedItems() async {
+    if (!UserSession.isLoggedIn) {
+      if (mounted) {
+        _clearSavedState();
+      }
+      return;
+    }
+
+    final loadId = ++_activeLoadId;
+
     setState(() {
       _isLoading = true;
     });
@@ -52,28 +90,23 @@ class SavedTabState extends State<SavedTab> {
     try {
       final items = await _bucketListService.fetchSavedItems();
 
-      if (!mounted) return;
+      if (!mounted || !UserSession.isLoggedIn || loadId != _activeLoadId) {
+        return;
+      }
 
       setState(() {
         _savedItems = items;
         _isLoading = false;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || loadId != _activeLoadId) return;
 
-      setState(() {
-        _savedItems = [];
-        _isLoading = false;
-      });
+      _clearSavedState();
     }
   }
 
   Future<void> _openLogin() async {
-    final bool? loggedIn = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => const LoginScreen(),
-      ),
-    );
+    final bool? loggedIn = await AppRouter.openLogin(context);
 
     if (loggedIn == true && mounted) {
       await _loadSavedItems();
@@ -118,17 +151,13 @@ class SavedTabState extends State<SavedTab> {
       isBookmarked: true,
     );
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ItemDetailScreen(summary: summary),
-      ),
-    );
+    AppRouter.openItem(context, summary);
   }
 
   @override
   Widget build(BuildContext context) {
     if (!UserSession.isLoggedIn) {
-      return _buildGuestPreview(context);
+      return _buildGuestState(context);
     }
 
     return Scaffold(
@@ -146,331 +175,258 @@ class SavedTabState extends State<SavedTab> {
     );
   }
 
-  Widget _buildGuestPreview(BuildContext context) {
-    final previewItems = [
-      const _PreviewBookmark(
-        itemName: 'Cheese Dabeli',
-        areaName: 'Navrangpura',
-        city: 'Ahmedabad',
-      ),
-      const _PreviewBookmark(
-        itemName: 'Pani Puri',
-        areaName: 'Law Garden',
-        city: 'Ahmedabad',
-      ),
-      const _PreviewBookmark(
-        itemName: 'Butter Pav Bhaji',
-        areaName: 'Juhu',
-        city: 'Mumbai',
-      ),
-    ];
-
+  Widget _buildGuestState(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.fog,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (widget.showInternalHeader) _buildHeader(context),
-              if (widget.showInternalHeader) const SizedBox(height: 12),
-              const Text(
-                'Preview how your saved items will look after login.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.stone,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ...previewItems.map(
-                    (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: InkWell(
-                    onTap: _openLogin,
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
+        child: centeredContent(
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (widget.showInternalHeader) _buildHeader(context),
+                    if (widget.showInternalHeader) const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(22),
                       decoration: BoxDecoration(
                         color: AppTheme.snow,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: AppTheme.shadowXs,
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: AppTheme.shadowSm,
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Container(
-                            width: 52,
-                            height: 52,
+                            width: 68,
+                            height: 68,
                             decoration: BoxDecoration(
                               color: AppTheme.offWhite,
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius: BorderRadius.circular(18),
                             ),
                             child: const Icon(
-                              Icons.restaurant_rounded,
+                              Icons.bookmark_border_rounded,
+                              size: 34,
                               color: AppTheme.ink,
                             ),
                           ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  item.itemName,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppTheme.ink,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${item.areaName}, ${item.city}',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppTheme.pebble,
-                                  ),
-                                ),
-                              ],
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Your bucket list is not available',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: AppTheme.ink,
                             ),
                           ),
-                          const Icon(
-                            Icons.bookmark_rounded,
-                            color: AppTheme.accent,
+                          const SizedBox(height: 8),
+                          const Text(
+                            'You are logged out. Login to view and manage your saved items.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.stone,
+                              height: 1.4,
+                            ),
                           ),
-                        ],
+                          const SizedBox(height: 18),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                                onPressed: _openLogin,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.accent,
+                                  foregroundColor: AppTheme.snow,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Login to continue',
+                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: AppTheme.snow,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: AppTheme.shadowXs,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Save dishes you want to try',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Login to build your personal bucket list and access it anytime.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.stone,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _openLogin,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.accent,
-                          foregroundColor: AppTheme.snow,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: const Text(
-                          'Login to save items',
-                          style: TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-      child: Row(
-        children: [
-          Text(
-            'Bucket List',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBody(BuildContext context) {
-    if (_isLoading) {
-      return _buildLoadingState(context);
+      );
     }
 
-    if (_savedItems.isEmpty) {
-      return _buildEmptyState(context);
+    Widget _buildHeader(BuildContext context) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+        child: Row(
+          children: [
+            Text(
+              'Bucket List',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      );
     }
 
-    return _buildSavedItemsList();
-  }
+    Widget _buildBody(BuildContext context) {
+      if (_isLoading) {
+        return _buildLoadingState(context);
+      }
 
-  Widget _buildLoadingState(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(
-            color: AppTheme.accent,
-            strokeWidth: 2,
-          ),
-          const SizedBox(height: 14),
-          Text(
-            'Loading saved items...',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppTheme.stone,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+      if (_savedItems.isEmpty) {
+        return _buildEmptyState(context);
+      }
 
-  Widget _buildEmptyState(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 28),
+      return _buildSavedItemsList();
+    }
+
+    Widget _buildLoadingState(BuildContext context) {
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.bookmark_border_rounded,
-              size: 46,
-              color: AppTheme.pebble,
+            const CircularProgressIndicator(
+              color: AppTheme.accent,
+              strokeWidth: 2,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Text(
-              'Your bucket list is empty',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Save food items you want to try and they will appear here.',
-              textAlign: TextAlign.center,
+              'Loading saved items...',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: AppTheme.stone,
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
+      );
+    }
 
-  Widget _buildSavedItemsList() {
-    return RefreshIndicator(
-      onRefresh: _loadSavedItems,
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
-        itemCount: _savedItems.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final item = _savedItems[index];
-
-          return InkWell(
-            onTap: () => _openSavedItemDetail(item),
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.snow,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: AppTheme.shadowXs,
+    Widget _buildEmptyState(BuildContext context) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.bookmark_border_rounded,
+                size: 46,
+                color: AppTheme.pebble,
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 52,
-                    height: 52,
+              const SizedBox(height: 12),
+              Text(
+                'Your bucket list is empty',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Save food items you want to try and they will appear here.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppTheme.stone,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    Widget _buildSavedItemsList() {
+      return RefreshIndicator(
+        onRefresh: _loadSavedItems,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+              itemCount: _savedItems.length,
+              separatorBuilder: (_, index) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final item = _savedItems[index];
+
+                return InkWell(
+                  onTap: () => _openSavedItemDetail(item),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: AppTheme.offWhite,
-                      borderRadius: BorderRadius.circular(14),
+                      color: AppTheme.snow,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: AppTheme.shadowXs,
                     ),
-                    child: const Icon(
-                      Icons.restaurant_rounded,
-                      color: AppTheme.ink,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          item.itemName,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
+                        Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            color: AppTheme.offWhite,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(
+                            Icons.restaurant_rounded,
                             color: AppTheme.ink,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          [item.areaName, item.city]
-                              .where((e) => e.trim().isNotEmpty)
-                              .join(', '),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.pebble,
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.itemName,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.ink,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                [item.areaName, item.city]
+                                    .where((e) => e.trim().isNotEmpty)
+                                    .join(', '),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.pebble,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => _removeSavedItem(item),
+                          child: const Icon(
+                            Icons.bookmark_rounded,
+                            color: AppTheme.accent,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  GestureDetector(
-                    onTap: () => _removeSavedItem(item),
-                    child: const Icon(
-                      Icons.bookmark_rounded,
-                      color: AppTheme.accent,
-                    ),
-                  ),
-                ],
-              ),
+                );
+              },
             ),
-          );
-        },
-      ),
-    );
+          ),
+        ),
+      );
+    }
   }
-}
-
-class _PreviewBookmark {
-  final String itemName;
-  final String areaName;
-  final String city;
-
-  const _PreviewBookmark({
-    required this.itemName,
-    required this.areaName,
-    required this.city,
-  });
-}

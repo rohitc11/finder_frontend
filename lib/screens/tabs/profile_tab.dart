@@ -3,20 +3,18 @@ import 'package:flutter/material.dart';
 import '../../config/user_session.dart';
 import '../../models/user_model.dart';
 import '../../models/user_profile_summary_model.dart';
+import '../../router/app_router.dart';
 import '../../services/auth_service.dart';
 import '../../services/bucket_list_service.dart';
 import '../../services/contribution_service.dart';
 import '../../services/user_service.dart';
 import '../../theme/app_theme.dart';
-import '../auth/login_screen.dart';
+import '../../utils/responsive.dart';
 import '../contributions/my_contributions_screen.dart';
 import '../contributions/suggest_item_screen.dart';
-import '../home_screen.dart';
-import 'saved_tab.dart';
 import '../saved/bucket_list_page.dart';
 import '../admin/pending_suggestions_screen.dart';
 import '../reviews/my_reviews_screen.dart';
-import '../auth/login_screen.dart';
 
 /// Profile tab.
 ///
@@ -46,10 +44,13 @@ class _ProfileTabState extends State<ProfileTab> {
   int _contributionCount = 0;
 
   bool _isLoading = true;
+  int _activeLoadId = 0;
 
   @override
   void initState() {
     super.initState();
+    UserSession.sessionVersion.addListener(_handleSessionChanged);
+
     if (UserSession.isLoggedIn) {
       _loadProfileData();
     } else {
@@ -57,7 +58,46 @@ class _ProfileTabState extends State<ProfileTab> {
     }
   }
 
+  @override
+  void dispose() {
+    UserSession.sessionVersion.removeListener(_handleSessionChanged);
+    super.dispose();
+  }
+
+  void _handleSessionChanged() {
+    if (!mounted) return;
+
+    if (!UserSession.isLoggedIn) {
+      _clearProfileState();
+      return;
+    }
+
+    _loadProfileData();
+  }
+
+  void _clearProfileState() {
+    _activeLoadId++;
+
+    setState(() {
+      _user = null;
+      _summary = null;
+      _bucketListCount = 0;
+      _reviewCount = 0;
+      _contributionCount = 0;
+      _isLoading = false;
+    });
+  }
+
   Future<void> _loadProfileData() async {
+    if (!UserSession.isLoggedIn) {
+      if (mounted) {
+        _clearProfileState();
+      }
+      return;
+    }
+
+    final loadId = ++_activeLoadId;
+
     setState(() {
       _isLoading = true;
     });
@@ -73,36 +113,27 @@ class _ProfileTabState extends State<ProfileTab> {
       final summary = results[1] as UserProfileSummaryModel;
       final savedItems = results[2] as List<dynamic>;
 
-      if (!mounted) return;
+      if (!mounted || !UserSession.isLoggedIn || loadId != _activeLoadId) {
+        return;
+      }
 
       setState(() {
         _user = user;
         _summary = summary;
         _bucketListCount = savedItems.length;
-        _reviewCount = user.totalReviewsGiven ?? 0;
+        _reviewCount = user.totalReviewsGiven;
         _contributionCount = summary.totalContributions;
         _isLoading = false;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || loadId != _activeLoadId) return;
 
-      setState(() {
-        _user = null;
-        _summary = null;
-        _bucketListCount = 0;
-        _reviewCount = 0;
-        _contributionCount = 0;
-        _isLoading = false;
-      });
+      _clearProfileState();
     }
   }
 
   Future<void> _openLoginFromProfile() async {
-    final bool? loggedIn = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => const LoginScreen(),
-      ),
-    );
+    final bool? loggedIn = await AppRouter.openLogin(context);
 
     if (loggedIn == true && mounted) {
       await _loadProfileData();
@@ -114,12 +145,7 @@ class _ProfileTabState extends State<ProfileTab> {
 
     if (!mounted) return;
 
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (_) => const HomeScreen(),
-      ),
-          (route) => false,
-    );
+    AppRouter.goHome(context);
   }
 
   @override
@@ -143,22 +169,26 @@ class _ProfileTabState extends State<ProfileTab> {
           color: AppTheme.accent,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildProfileHeader(),
-                const SizedBox(height: 18),
-                _buildTopStats(),
-                const SizedBox(height: 18),
-                _buildAddItemCard(context),
-                const SizedBox(height: 18),
-                _buildImpactCard(),
-                const SizedBox(height: 18),
-                _buildMenuCard(context),
-                const SizedBox(height: 18),
-                _buildLogoutButton(),
-              ],
+            child: centeredContent(
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildProfileHeader(),
+                    const SizedBox(height: 18),
+                    _buildTopStats(),
+                    const SizedBox(height: 18),
+                    _buildAddItemCard(context),
+                    const SizedBox(height: 18),
+                    _buildImpactCard(),
+                    const SizedBox(height: 18),
+                    _buildMenuCard(context),
+                    const SizedBox(height: 18),
+                    _buildLogoutButton(),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -171,10 +201,12 @@ class _ProfileTabState extends State<ProfileTab> {
       backgroundColor: AppTheme.fog,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          child: centeredContent(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
               Text(
                 'Profile',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -348,6 +380,8 @@ class _ProfileTabState extends State<ProfileTab> {
           ),
         ),
       ),
+    ),
+  ),
     );
   }
 
@@ -509,7 +543,7 @@ class _ProfileTabState extends State<ProfileTab> {
       width: 1,
       height: 60,
       margin: const EdgeInsets.symmetric(horizontal: 12),
-      color: AppTheme.silver.withOpacity(0.45),
+      color: AppTheme.silver.withValues(alpha: 0.45),
     );
   }
 
@@ -537,7 +571,7 @@ class _ProfileTabState extends State<ProfileTab> {
               width: 54,
               height: 54,
               decoration: BoxDecoration(
-                color: AppTheme.snow.withOpacity(0.18),
+                color: AppTheme.snow.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: const Icon(
@@ -811,7 +845,7 @@ class _ProfileTabState extends State<ProfileTab> {
       height: 1,
       indent: 18,
       endIndent: 18,
-      color: AppTheme.silver.withOpacity(0.45),
+      color: AppTheme.silver.withValues(alpha: 0.45),
     );
   }
 
@@ -820,7 +854,7 @@ class _ProfileTabState extends State<ProfileTab> {
       height: 1,
       indent: 18,
       endIndent: 18,
-      color: AppTheme.silver.withOpacity(0.45),
+      color: AppTheme.silver.withValues(alpha: 0.45),
     );
   }
 }

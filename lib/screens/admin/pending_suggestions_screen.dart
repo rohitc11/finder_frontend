@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/admin_suggestion_model.dart';
+import '../../utils/responsive.dart';
 import '../../services/admin_service.dart';
 import '../../theme/app_theme.dart';
 import 'pending_suggestion_detail_screen.dart';
@@ -91,8 +92,11 @@ class _PendingSuggestionsScreenState extends State<PendingSuggestionsScreen> {
           : RefreshIndicator(
         onRefresh: _loadPendingItems,
         color: AppTheme.accent,
-        child: ListView.separated(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: kMaxContentWidth),
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
           itemCount: _items.length,
           separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
@@ -169,6 +173,8 @@ class _PendingSuggestionsScreenState extends State<PendingSuggestionsScreen> {
           },
         ),
       ),
+    ),
+  ),
     );
   }
 

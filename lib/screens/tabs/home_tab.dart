@@ -6,6 +6,7 @@ import '../../models/search_result_model.dart';
 import '../../services/location_service.dart';
 import '../../services/search_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/responsive.dart';
 import '../contributions/my_contributions_screen.dart';
 import '../contributions/suggest_item_screen.dart';
 import '../item_detail_screen.dart';
@@ -31,28 +32,32 @@ class HomeTab extends StatelessWidget {
       backgroundColor: AppTheme.fog,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(context),
-              const SizedBox(height: 24),
-              _buildSearchCard(context),
-              const SizedBox(height: 20),
-              _buildContributionBanner(context),
-              const SizedBox(height: 24),
-              _buildSectionHeader(context, 'Quick actions'),
-              const SizedBox(height: 12),
-              _buildQuickActions(context),
-              const SizedBox(height: 28),
-              _buildSectionHeader(context, 'Popular searches'),
-              const SizedBox(height: 12),
-              _buildPopularSearchChips(context),
-              const SizedBox(height: 28),
-              _buildSectionHeader(context, 'Why use Finder?'),
-              const SizedBox(height: 12),
-              _buildValueCards(),
-            ],
+          child: centeredContent(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(context),
+                  const SizedBox(height: 24),
+                  _buildSearchCard(context),
+                  const SizedBox(height: 20),
+                  _buildContributionBanner(context),
+                  const SizedBox(height: 24),
+                  _buildSectionHeader(context, 'Quick actions'),
+                  const SizedBox(height: 12),
+                  _buildQuickActions(context),
+                  const SizedBox(height: 28),
+                  _buildSectionHeader(context, 'Popular searches'),
+                  const SizedBox(height: 12),
+                  _buildPopularSearchChips(context),
+                  const SizedBox(height: 28),
+                  _buildSectionHeader(context, 'Why use Finder?'),
+                  const SizedBox(height: 12),
+                  _buildValueCards(),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -679,14 +684,21 @@ class _QuickSearchResultsScreenState extends State<_QuickSearchResultsScreen> {
           ? _buildMessageCard(_errorMessage!)
           : _results.isEmpty
           ? _buildMessageCard('No items found for this search.')
-          : ListView.separated(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        itemCount: _results.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (_, index) {
-          final item = _results[index];
-          return _QuickSearchResultCard(item: item);
-        },
+          : Center(
+        child: ConstrainedBox(
+          constraints:
+              const BoxConstraints(maxWidth: kMaxContentWidth),
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            itemCount: _results.length,
+            separatorBuilder: (_, __) =>
+                const SizedBox(height: 12),
+            itemBuilder: (_, index) {
+              final item = _results[index];
+              return _QuickSearchResultCard(item: item);
+            },
+          ),
+        ),
       ),
     );
   }

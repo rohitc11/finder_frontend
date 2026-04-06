@@ -220,6 +220,20 @@ class _WriteReviewBottomSheetState extends State<WriteReviewBottomSheet> {
                   return ChoiceChip(
                     label: Text(suggestion),
                     selected: selected,
+                    backgroundColor: AppTheme.snow,
+                    selectedColor: AppTheme.accentDim,
+                    surfaceTintColor: Colors.transparent,
+                    side: BorderSide(
+                      color: selected ? AppTheme.accent : AppTheme.ink,
+                    ),
+                    checkmarkColor: AppTheme.accent,
+                    labelStyle: TextStyle(
+                      color: selected ? AppTheme.accent : AppTheme.ink,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                     onSelected: _isSubmitting
                         ? null
                         : (_) => _applySuggestion(suggestion),
