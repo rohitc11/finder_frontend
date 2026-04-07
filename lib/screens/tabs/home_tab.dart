@@ -10,6 +10,8 @@ import '../contributions/my_contributions_screen.dart';
 import '../contributions/suggest_item_screen.dart';
 import '../item_detail_screen.dart';
 import 'search_tab.dart';
+import '../../services/bucket_list_service.dart';
+import '../auth/login_screen.dart';
 
 /// Home tab shown as the first screen inside the app shell.
 ///
@@ -164,7 +166,7 @@ class HomeTab extends StatelessWidget {
   /// - contribution message always stays visible
   /// - reward-specific wording appears only when rewards are enabled
   Widget _buildContributionBanner(BuildContext context) {
-    const Color bannerColor = Color(0xFF4B2E83);
+    const Color bannerColor = Color(0xFFFF6B47);
 
     final subtitle = FeatureFlags.isRewardsEnabled
         ? 'Help others discover truly exceptional dishes you’ve experienced, and earn points after approval.'
@@ -718,7 +720,7 @@ class _QuickSearchResultsScreenState extends State<_QuickSearchResultsScreen> {
   }
 }
 
-class _QuickSearchResultCard extends StatelessWidget {
+class _QuickSearchResultCard extends StatefulWidget {
   final SearchResultModel item;
 
   const _QuickSearchResultCard({
@@ -726,7 +728,74 @@ class _QuickSearchResultCard extends StatelessWidget {
   });
 
   @override
+  State<_QuickSearchResultCard> createState() => _QuickSearchResultCardState();
+}
+
+class _QuickSearchResultCardState extends State<_QuickSearchResultCard> {
+  final BucketListService _bucketListService = BucketListService();
+
+  late bool _isBookmarked;
+  bool _isUpdatingBookmark = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isBookmarked = widget.item.isBookmarked;
+  }
+
+  Future<void> _toggleBookmark() async {
+    if (_isUpdatingBookmark) return;
+
+    if (!UserSession.isLoggedIn) {
+      final bool? loggedIn = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (_) => const LoginScreen(),
+        ),
+      );
+
+      if (loggedIn != true) {
+        return;
+      }
+    }
+
+    final previousValue = _isBookmarked;
+
+    setState(() {
+      _isUpdatingBookmark = true;
+      _isBookmarked = !_isBookmarked;
+    });
+
+    try {
+      if (_isBookmarked) {
+        await _bucketListService.addToBucketList(widget.item.itemId);
+      } else {
+        await _bucketListService.removeFromBucketList(widget.item.itemId);
+      }
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _isBookmarked = previousValue;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not update bookmark. Please try again.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUpdatingBookmark = false;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final item = widget.item;
+
     return InkWell(
       onTap: () {
         Navigator.of(context).push(
@@ -792,6 +861,53 @@ class _QuickSearchResultCard extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                GestureDetector(
+                  onTap: _toggleBookmark,
+                  child: _isUpdatingBookmark
+                      ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppTheme.accent,
+                    ),
+                  )
+                      : Icon(
+                    _isBookmarked
+                        ? Icons.bookmark_rounded
+                        : Icons.bookmark_border_rounded,
+                    color: _isBookmarked
+                        ? AppTheme.accent
+                        : AppTheme.pebble,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                if (item.avgItemRating != null)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.star_rounded,
+                        size: 16,
+                        color: Color(0xFFFF9F0A),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        item.avgItemRating!.toStringAsFixed(1),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.ink,
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
             ),
           ],
         ),
