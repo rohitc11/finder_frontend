@@ -49,7 +49,7 @@ class HomeTab extends StatelessWidget {
               const SizedBox(height: 12),
               _buildPopularSearchChips(context),
               const SizedBox(height: 28),
-              _buildSectionHeader(context, 'Why use Finder?'),
+              _buildSectionHeader(context, 'Why use Spotzy?'),
               const SizedBox(height: 12),
               _buildValueCards(),
             ],
@@ -64,7 +64,7 @@ class HomeTab extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Finder',
+          'Spotzy',
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.w800,
           ),

@@ -564,7 +564,7 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Help improve Finder',
+                  'Help improve Spotzy',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,

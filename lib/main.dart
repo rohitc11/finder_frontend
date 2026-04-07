@@ -29,7 +29,7 @@ class FinderApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Finder',
+      title: 'Spotzy',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
       home: const HomeScreen(),

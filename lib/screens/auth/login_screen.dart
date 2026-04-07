@@ -5,7 +5,7 @@ import '../../theme/app_theme.dart';
 import '../home_screen.dart';
 import 'register_screen.dart';
 
-/// Login screen for Finder.
+/// Login screen for Spotzy.
 ///
 /// Launch scope:
 /// - email or phone + password

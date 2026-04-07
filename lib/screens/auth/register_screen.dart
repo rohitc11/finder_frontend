@@ -172,7 +172,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Create your Finder account',
+            'Create your Spotzy account',
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w800,

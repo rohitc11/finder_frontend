@@ -207,7 +207,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     final rating = _item?.avgItemRating ?? widget.summary.avgItemRating;
 
     final message = StringBuffer()
-      ..writeln('Check out this standout dish on Finder')
+      ..writeln('Check out this standout dish on Spotzy')
       ..writeln()
       ..writeln('Item: $itemName')
       ..writeln('Place: $restaurantName');
@@ -222,7 +222,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
     message
       ..writeln()
-      ..write('Discover iconic dishes on Finder.');
+      ..write('Discover iconic dishes on Spotzy.');
 
     await Share.share(message.toString());
   }

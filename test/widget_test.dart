@@ -2,11 +2,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:finder/main.dart';
 
 void main() {
-  testWidgets('Finder app renders home screen', (WidgetTester tester) async {
+  testWidgets('Spotzy app renders home screen', (WidgetTester tester) async {
     await tester.pumpWidget(const FinderApp());
 
     // Verify the app title is displayed
-    expect(find.text('Finder'), findsOneWidget);
+    expect(find.text('Spotzy'), findsOneWidget);
 
     // Verify the subtitle is displayed
     expect(find.text('Discover what matters'), findsOneWidget);

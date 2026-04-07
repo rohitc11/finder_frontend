@@ -396,7 +396,7 @@ class _ProfileTabState extends State<ProfileTab> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    displayEmail.isNotEmpty ? displayEmail : 'Finder user',
+                    displayEmail.isNotEmpty ? displayEmail : 'Spotzy user',
                     style: const TextStyle(
                       fontSize: 13,
                       color: AppTheme.stone,

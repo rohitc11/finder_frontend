@@ -1,9 +1,20 @@
 /// Central API configuration for the app.
+///
+/// Uses compile-time environment values so debug/release can point to
+/// different backend servers without code changes in multiple places.
 class ApiConfig {
-  /// Android emulator localhost mapping.
-  static const String baseUrl = 'http://10.0.2.2:8080';
+  /// Example usage:
+  /// flutter run --dart-define=BASE_URL=http://10.0.2.2:8080
+  /// flutter build appbundle --dart-define=BASE_URL=https://api.yourdomain.com
+  static const String baseUrl = String.fromEnvironment(
+    'BASE_URL',
+    defaultValue: 'http://10.0.2.2:8080',
+  );
 
-  static const String environmentDisplay = 'Local';
+  static const String environmentDisplay = String.fromEnvironment(
+    'APP_ENV',
+    defaultValue: 'Local',
+  );
 
   /// Auth endpoints
   static const String loginEndpoint = '$baseUrl/auth/login';
@@ -27,5 +38,5 @@ class ApiConfig {
   static const String bucketListCheckEndpoint = '$baseUrl/bucket-list/check';
 
   /// Health endpoint
-  static const String healthEndpoint = '$baseUrl/actuator/health';
+  static const String healthEndpoint = '$baseUrl/health';
 }
