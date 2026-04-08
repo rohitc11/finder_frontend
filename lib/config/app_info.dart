@@ -1,6 +1,6 @@
 class AppInfo {
   static const String appName = 'Spotzy';
-  static const String contactEmail = 'support@spotzy.app';
+  static const String contactEmail = 'supportwithspotzy@gmail.com';
 
   static const String aboutUs =
       'Spotzy helps people discover standout dishes around them. '
