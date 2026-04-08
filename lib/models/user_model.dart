@@ -2,6 +2,7 @@
 class UserModel {
   final String id;
   final String name;
+  final String publicUsername;
   final String email;
   final String phoneNumber;
   final String profileImageUrl;
@@ -9,11 +10,11 @@ class UserModel {
   final int totalReviewsGiven;
   final List<String> citiesVisited;
   final int citiesVisitedCount;
-  final String publicUsername;
 
   UserModel({
     required this.id,
     required this.name,
+    required this.publicUsername,
     required this.email,
     required this.phoneNumber,
     required this.profileImageUrl,
@@ -21,24 +22,23 @@ class UserModel {
     required this.totalReviewsGiven,
     required this.citiesVisited,
     required this.citiesVisitedCount,
-    required this.publicUsername,
   });
 
   /// Creates model from backend JSON response.
-  factory UserModel.fromJson(Map<String, dynamic> json) {
+  factory UserModel.fromJson(Map json) {
     return UserModel(
-      id: json['id'] ?? '',
-      name: json['name'] ?? '',
-      email: json['email'] ?? '',
-      phoneNumber: json['phoneNumber'] ?? '',
-      profileImageUrl: json['profileImageUrl'] ?? '',
-      bio: json['bio'] ?? '',
+      id: (json['id'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      publicUsername: (json['publicUsername'] ?? '').toString(),
+      email: (json['email'] ?? '').toString(),
+      phoneNumber: (json['phoneNumber'] ?? '').toString(),
+      profileImageUrl: (json['profileImageUrl'] ?? '').toString(),
+      bio: (json['bio'] ?? '').toString(),
       totalReviewsGiven: json['totalReviewsGiven'] ?? 0,
-      citiesVisited: (json['citiesVisited'] as List<dynamic>? ?? [])
+      citiesVisited: (json['citiesVisited'] as List? ?? [])
           .map((e) => e.toString())
           .toList(),
       citiesVisitedCount: json['citiesVisitedCount'] ?? 0,
-      publicUsername: (json['publicUsername'] ?? '').toString(),
     );
   }
 }

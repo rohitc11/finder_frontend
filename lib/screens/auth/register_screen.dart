@@ -7,8 +7,10 @@ import '../../theme/app_theme.dart';
 ///
 /// Rule:
 /// - name required
+/// - public name required
 /// - password required
 /// - either email or phoneNumber should be filled
+/// - public name defaults from original name until manually edited
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -20,20 +22,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final AuthService _authService = AuthService();
 
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _publicNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   bool _isLoading = false;
+  bool _publicNameEditedManually = false;
 
   Future<void> _register() async {
     final name = _nameController.text.trim();
+    final publicName = _publicNameController.text.trim();
     final email = _emailController.text.trim();
     final phone = _phoneController.text.trim();
     final password = _passwordController.text.trim();
 
     if (name.isEmpty) {
       _showSnack('Please enter your name.');
+      return;
+    }
+
+    if (publicName.isEmpty) {
+      _showSnack('Please enter public name.');
       return;
     }
 
@@ -52,6 +62,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     try {
       await _authService.register(
         name: name,
+        publicUsername: publicName,
         email: email.isEmpty ? null : email,
         phoneNumber: phone.isEmpty ? null : phone,
         password: password,
@@ -69,6 +80,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  void _onNameChanged(String value) {
+    if (_publicNameEditedManually) return;
+    _publicNameController.text = value;
+  }
+
   void _showSnack(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
@@ -78,6 +94,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _publicNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
@@ -107,6 +124,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
               controller: _nameController,
               label: 'Name',
               hint: 'Enter your name',
+              onChanged: _onNameChanged,
+            ),
+            const SizedBox(height: 14),
+            _buildField(
+              controller: _publicNameController,
+              label: 'Public Name',
+              hint: 'Visible in reviews and app',
+              onChanged: (_) {
+                _publicNameEditedManually = true;
+              },
             ),
             const SizedBox(height: 14),
             _buildField(
@@ -181,7 +208,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
           SizedBox(height: 6),
           Text(
-            'Either email or phone number is required. You only need one of them to continue.',
+            'Public Name will be visible in reviews and app surfaces. You can edit it later in Settings.',
             style: TextStyle(
               fontSize: 13,
               color: AppTheme.stone,
@@ -198,6 +225,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     required String label,
     required String hint,
     bool obscureText = false,
+    ValueChanged<String>? onChanged,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -214,6 +242,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         TextField(
           controller: controller,
           obscureText: obscureText,
+          onChanged: onChanged,
           decoration: InputDecoration(
             hintText: hint,
             filled: true,

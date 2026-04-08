@@ -28,7 +28,7 @@ class AuthService {
       throw Exception(_extractMessage(response.body, 'Invalid credentials'));
     }
 
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = jsonDecode(response.body) as Map;
     final auth = AuthResponseModel.fromJson(data);
 
     await UserSession.saveSession(
@@ -45,6 +45,7 @@ class AuthService {
 
   Future<AuthResponseModel> register({
     required String name,
+    required String publicUsername,
     String? email,
     String? phoneNumber,
     required String password,
@@ -54,6 +55,7 @@ class AuthService {
       headers: const {'Content-Type': 'application/json'},
       body: jsonEncode({
         'name': name.trim(),
+        'publicUsername': publicUsername.trim(),
         'email': (email ?? '').trim().isEmpty ? null : email!.trim(),
         'phoneNumber':
         (phoneNumber ?? '').trim().isEmpty ? null : phoneNumber!.trim(),
@@ -65,7 +67,7 @@ class AuthService {
       throw Exception(_extractMessage(response.body, 'Registration failed'));
     }
 
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = jsonDecode(response.body) as Map;
     final auth = AuthResponseModel.fromJson(data);
 
     await UserSession.saveSession(
@@ -87,7 +89,7 @@ class AuthService {
   String _extractMessage(String body, String fallback) {
     try {
       final decoded = jsonDecode(body);
-      if (decoded is Map<String, dynamic>) {
+      if (decoded is Map) {
         if ((decoded['message'] ?? '').toString().trim().isNotEmpty) {
           return decoded['message'].toString();
         }
