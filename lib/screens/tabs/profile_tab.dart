@@ -16,7 +16,6 @@ import 'saved_tab.dart';
 import '../saved/bucket_list_page.dart';
 import '../admin/pending_suggestions_screen.dart';
 import '../reviews/my_reviews_screen.dart';
-import '../auth/login_screen.dart';
 import '../settings/settings_screen.dart';
 
 /// Profile tab.
@@ -322,7 +321,16 @@ class _ProfileTabState extends State<ProfileTab> {
                     _guestDivider(),
                     _guestMenuTile('My Reviews'),
                     _guestDivider(),
-                    _guestMenuTile('Settings'),
+                    _guestMenuTile(
+                      'Settings',
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const SettingsScreen(),
+                          ),
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -690,7 +698,7 @@ class _ProfileTabState extends State<ProfileTab> {
               );
             },
           ),
-
+          _divider(),
           _menuTile(
             icon: Icons.settings_rounded,
             iconBg: const Color(0xFFEAF4FF),
@@ -699,7 +707,7 @@ class _ProfileTabState extends State<ProfileTab> {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => SettingsScreen(user: _user!),
+                  builder: (_) => SettingsScreen(user: _user),
                 ),
               );
             },
@@ -794,9 +802,9 @@ class _ProfileTabState extends State<ProfileTab> {
     );
   }
 
-  Widget _guestMenuTile(String label) {
+  Widget _guestMenuTile(String label, {VoidCallback? onTap}) {
     return InkWell(
-      onTap: _openLoginFromProfile,
+      onTap: onTap ?? _openLoginFromProfile,
       borderRadius: BorderRadius.circular(16),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),

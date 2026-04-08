@@ -97,6 +97,13 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
     final valid = _formKey.currentState?.validate() ?? false;
     if (!valid || _isSubmitting) return;
 
+    /// Guest users can open the form and explore it,
+    /// but they must log in before final submission.
+    if (!UserSession.isLoggedIn) {
+      _showSnack('Please login to submit items.');
+      return;
+    }
+
     final lat = _tryParseDouble(_latitudeController.text);
     final lng = _tryParseDouble(_longitudeController.text);
 
@@ -156,7 +163,9 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
   /// - area
   ///
   /// UX decision:
-  /// - city/area remain editable even after auto-fill
+  /// - coordinates should always refresh from current location
+  /// - manually entered city/area should not be overwritten silently
+  /// - city/area are auto-filled only if currently empty
   /// - reverse geocoding failure should not block coordinate fill
   Future<void> _useCurrentLocation() async {
     if (_isSubmitting) return;
@@ -427,7 +436,7 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
               _sectionCard(
                 title: 'Location (optional)',
                 subtitle:
-                'Use current location or enter coordinates only if available.',
+                'Using current location will update the city and area automatically. You can edit them again afterward if needed.',
                 children: [
                   InkWell(
                     onTap: () {

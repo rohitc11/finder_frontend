@@ -7,11 +7,11 @@ import '../../services/user_service.dart';
 import '../../theme/app_theme.dart';
 
 class SettingsScreen extends StatefulWidget {
-  final UserModel user;
+  final UserModel? user;
 
   const SettingsScreen({
     super.key,
-    required this.user,
+    this.user,
   });
 
   @override
@@ -29,7 +29,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _publicUsernameController =
-        TextEditingController(text: widget.user.publicUsername);
+        TextEditingController(text: widget.user?.publicUsername?? '');
     _loadVersion();
   }
 
@@ -118,62 +118,103 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         children: [
-          _sectionCard(
-            title: 'Public username',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'This name will be shown publicly in reviews and other app surfaces.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.stone,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _publicUsernameController,
-                  decoration: InputDecoration(
-                    hintText: 'Enter public username',
-                    filled: true,
-                    fillColor: AppTheme.fog,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide.none,
+          if (widget.user != null) ...[
+            _sectionCard(
+              title: 'Public username',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'This name will be shown publicly in reviews and other app surfaces.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.stone,
+                      height: 1.4,
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isSaving ? null : _savePublicUsername,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.accent,
-                      foregroundColor: AppTheme.snow,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _publicUsernameController,
+                    decoration: InputDecoration(
+                      hintText: 'Enter public username',
+                      filled: true,
+                      fillColor: AppTheme.fog,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
                       ),
                     ),
-                    child: _isSaving
-                        ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _isSaving ? null : _savePublicUsername,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.accent,
+                        foregroundColor: AppTheme.snow,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                    )
-                        : const Text(
-                      'Save public username',
-                      style: TextStyle(fontWeight: FontWeight.w700),
+                      child: _isSaving
+                          ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                          : const Text(
+                        'Save public username',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+            const SizedBox(height: 16),
+          ] else ...[
+            _sectionCard(
+              title: 'Personalize your profile',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Sign in to set your public name and personalize your profile.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.stone,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.accent,
+                        side: const BorderSide(color: AppTheme.accent),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Sign in from Profile',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           const SizedBox(height: 16),
           _menuCard([
             _menuTile(
