@@ -29,8 +29,10 @@ class ApiConfig {
   static const String mySuggestionsEndpoint = '$baseUrl/suggestions/me';
 
   /// User endpoints
-  static const String currentUserEndpoint = '$baseUrl/users/me';
+  static const String currentUserEndpoint = '$baseUrl/account/me';
   static const String currentUserSummaryEndpoint = '$baseUrl/users/me/summary';
+  static const String updatePublicUsernameEndpoint =
+      '$baseUrl/account/me/public-username';
 
   /// Bucket-list endpoints
   static const String myBucketListEndpoint = '$baseUrl/bucket-list/me';

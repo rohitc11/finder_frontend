@@ -55,6 +55,8 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
   /// Controls whether the optional location section is expanded.
   bool _showLocationSection = false;
 
+  bool get _isAdmin => (UserSession.role ?? '').toUpperCase() == 'ADMIN';
+
   @override
   void initState() {
     super.initState();
@@ -489,33 +491,35 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _textField(
-                            controller: _latitudeController,
-                            label: 'Latitude',
-                            hint: '23.0339',
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                              signed: true,
+                    if (_isAdmin) ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _textField(
+                              controller: _latitudeController,
+                              label: 'Latitude',
+                              hint: '23.0339',
+                              keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true,
+                                signed: true,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _textField(
-                            controller: _longitudeController,
-                            label: 'Longitude',
-                            hint: '72.5850',
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                              signed: true,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _textField(
+                              controller: _longitudeController,
+                              label: 'Longitude',
+                              hint: '72.5850',
+                              keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true,
+                                signed: true,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    ],
                   ],
                 ],
               ),

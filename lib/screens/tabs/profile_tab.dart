@@ -17,6 +17,7 @@ import '../saved/bucket_list_page.dart';
 import '../admin/pending_suggestions_screen.dart';
 import '../reviews/my_reviews_screen.dart';
 import '../auth/login_screen.dart';
+import '../settings/settings_screen.dart';
 
 /// Profile tab.
 ///
@@ -690,6 +691,20 @@ class _ProfileTabState extends State<ProfileTab> {
             },
           ),
 
+          _menuTile(
+            icon: Icons.settings_rounded,
+            iconBg: const Color(0xFFEAF4FF),
+            iconColor: const Color(0xFF1565C0),
+            title: 'Settings',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => SettingsScreen(user: _user!),
+                ),
+              );
+            },
+          ),
+
           /// Show admin-only moderation entry.
           if ((UserSession.role ?? '').toUpperCase() == 'ADMIN') ...[
             _divider(),
@@ -707,6 +722,7 @@ class _ProfileTabState extends State<ProfileTab> {
               },
             ),
           ],
+
         ],
       ),
     );

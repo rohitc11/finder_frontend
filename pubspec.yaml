@@ -40,6 +40,7 @@ dependencies:
   geocoding: ^3.0.0
   share_plus: ^10.0.2
   shared_preferences: ^2.2.3
+  package_info_plus: ^8.0.2
 
 dev_dependencies:
   flutter_test:
@@ -62,8 +63,14 @@ flutter_launcher_icons:
   image_path: "assets/icon/app_icon.png"
   min_sdk_android: 21
 
+
+
 # The following section is specific to Flutter packages.
 flutter:
+
+  assets:
+    - assets/icon/
+    - assets/branding/
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

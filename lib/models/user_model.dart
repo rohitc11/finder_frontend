@@ -9,6 +9,7 @@ class UserModel {
   final int totalReviewsGiven;
   final List<String> citiesVisited;
   final int citiesVisitedCount;
+  final String publicUsername;
 
   UserModel({
     required this.id,
@@ -20,6 +21,7 @@ class UserModel {
     required this.totalReviewsGiven,
     required this.citiesVisited,
     required this.citiesVisitedCount,
+    required this.publicUsername,
   });
 
   /// Creates model from backend JSON response.
@@ -36,6 +38,7 @@ class UserModel {
           .map((e) => e.toString())
           .toList(),
       citiesVisitedCount: json['citiesVisitedCount'] ?? 0,
+      publicUsername: (json['publicUsername'] ?? '').toString(),
     );
   }
 }
