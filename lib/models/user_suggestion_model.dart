@@ -2,6 +2,7 @@ enum SuggestionStatus {
   pendingReview,
   approvedNew,
   approvedMerged,
+  approvedEdit,
   rejected,
   unknown;
 
@@ -13,6 +14,8 @@ enum SuggestionStatus {
         return SuggestionStatus.approvedNew;
       case 'APPROVED_MERGED':
         return SuggestionStatus.approvedMerged;
+      case 'APPROVED_EDIT':
+        return SuggestionStatus.approvedEdit;
       case 'REJECTED':
         return SuggestionStatus.rejected;
       default:
@@ -75,7 +78,8 @@ class UserSuggestionModel {
 
   bool get isApproved =>
       status == SuggestionStatus.approvedNew ||
-          status == SuggestionStatus.approvedMerged;
+          status == SuggestionStatus.approvedMerged ||
+          status == SuggestionStatus.approvedEdit;
 
   String get statusLabel {
     switch (status) {
@@ -85,6 +89,8 @@ class UserSuggestionModel {
         return 'Approved';
       case SuggestionStatus.approvedMerged:
         return 'Merged';
+      case SuggestionStatus.approvedEdit:
+        return 'Approved edit';
       case SuggestionStatus.rejected:
         return 'Rejected';
       case SuggestionStatus.unknown:

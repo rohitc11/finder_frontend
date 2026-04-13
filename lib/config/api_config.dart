@@ -26,6 +26,8 @@ class ApiConfig {
 
   /// Suggestion / contribution endpoints
   static const String contributionSuggestionsEndpoint = '$baseUrl/suggestions';
+  static const String itemEditSuggestionEndpoint =
+      '$baseUrl/suggestions/item-edit';
   static const String mySuggestionsEndpoint = '$baseUrl/suggestions/me';
 
   /// User endpoints

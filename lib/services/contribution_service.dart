@@ -29,6 +29,7 @@ class ContributionService {
 
     final Map<String, dynamic> data =
     jsonDecode(response.body) as Map<String, dynamic>;
+
     return UserProfileSummaryModel.fromJson(data);
   }
 
@@ -47,12 +48,13 @@ class ContributionService {
     }
 
     final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
+
     return data
         .map((e) => UserSuggestionModel.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 
-  /// Submits a new suggestion for current logged-in user.
+  /// Submits a new item suggestion for current logged-in user.
   Future<void> submitSuggestion({
     required String itemName,
     required String restaurantName,
@@ -96,5 +98,60 @@ class ContributionService {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception('Failed to submit suggestion');
     }
+  }
+
+  /// Submits a correction/edit suggestion for an existing item.
+  ///
+  /// Only changed fields should be sent by the UI. Empty strings are trimmed;
+  /// null means "no proposed change" for that field.
+  Future<void> submitItemEditSuggestion({
+    required String targetItemId,
+    String? itemName,
+    String? restaurantName,
+    String? city,
+    String? areaName,
+    String? category,
+    String? subCategory,
+    double? price,
+    bool? isVeg,
+    String? note,
+    double? latitude,
+    double? longitude,
+  }) async {
+    final uri = Uri.parse(ApiConfig.itemEditSuggestionEndpoint);
+
+    final body = <String, dynamic>{
+      'targetItemId': targetItemId.trim(),
+      'itemName': _trimToNullable(itemName),
+      'restaurantName': _trimToNullable(restaurantName),
+      'city': _trimToNullable(city),
+      'areaName': _trimToNullable(areaName),
+      'category': _trimToNullable(category),
+      'subCategory': _trimToNullable(subCategory),
+      'price': price,
+      'isVeg': isVeg,
+      'note': _trimToNullable(note),
+      'latitude': latitude,
+      'longitude': longitude,
+    };
+
+    final response = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        ...UserSession.authHeaders,
+      },
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Failed to submit item edit suggestion');
+    }
+  }
+
+  String? _trimToNullable(String? value) {
+    if (value == null) return null;
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
   }
 }

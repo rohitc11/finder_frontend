@@ -623,6 +623,7 @@ class _SuggestionCard extends StatelessWidget {
       SuggestionStatus.pendingReview => AppTheme.warning,
       SuggestionStatus.approvedNew => AppTheme.success,
       SuggestionStatus.approvedMerged => AppTheme.success,
+      SuggestionStatus.approvedEdit => AppTheme.success,
       SuggestionStatus.rejected => AppTheme.error,
       SuggestionStatus.unknown => AppTheme.stone,
     };

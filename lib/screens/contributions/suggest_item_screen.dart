@@ -7,17 +7,36 @@ import '../../services/location_service.dart';
 import '../../config/feature_flags.dart';
 
 class SuggestItemScreen extends StatefulWidget {
+  final bool isEditMode;
+  final String? targetItemId;
+
   final String initialItemName;
+  final String initialRestaurantName;
   final String initialCity;
   final String initialAreaName;
+  final String initialCategory;
+  final String initialSubCategory;
+  final double? initialPrice;
+  final String initialCurrency;
+  final bool? initialIsVeg;
+  final String initialNote;
   final double? initialLatitude;
   final double? initialLongitude;
 
   const SuggestItemScreen({
     super.key,
+    this.isEditMode = false,
+    this.targetItemId,
     this.initialItemName = '',
+    this.initialRestaurantName = '',
     this.initialCity = '',
     this.initialAreaName = '',
+    this.initialCategory = '',
+    this.initialSubCategory = '',
+    this.initialPrice,
+    this.initialCurrency = 'INR',
+    this.initialIsVeg,
+    this.initialNote = '',
     this.initialLatitude,
     this.initialLongitude,
   });
@@ -61,20 +80,35 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
   void initState() {
     super.initState();
     _itemController = TextEditingController(text: widget.initialItemName);
-    _restaurantController = TextEditingController();
+    _restaurantController =
+        TextEditingController(text: widget.initialRestaurantName);
     _cityController = TextEditingController(text: widget.initialCity);
     _areaController = TextEditingController(text: widget.initialAreaName);
-    _categoryController = TextEditingController();
-    _subCategoryController = TextEditingController();
-    _priceController = TextEditingController();
-    _currencyController = TextEditingController(text: 'INR');
-    _noteController = TextEditingController();
+    _categoryController =
+        TextEditingController(text: widget.initialCategory);
+    _subCategoryController =
+        TextEditingController(text: widget.initialSubCategory);
+    _priceController = TextEditingController(
+      text: widget.initialPrice?.toString() ?? '',
+    );
+    _currencyController =
+        TextEditingController(text: widget.initialCurrency);
+    _noteController = TextEditingController(text: widget.initialNote);
     _latitudeController = TextEditingController(
       text: widget.initialLatitude?.toString() ?? '',
     );
     _longitudeController = TextEditingController(
       text: widget.initialLongitude?.toString() ?? '',
     );
+
+    _isVeg = widget.initialIsVeg;
+
+    if (widget.isEditMode &&
+        (widget.targetItemId == null || widget.targetItemId!.trim().isEmpty)) {
+      throw ArgumentError(
+        'targetItemId is required when SuggestItemScreen is used in edit mode.',
+      );
+    }
   }
 
   @override
@@ -115,24 +149,44 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      await _contributionService.submitSuggestion(
-        itemName: _itemController.text,
-        restaurantName: _restaurantController.text,
-        city: _cityController.text,
-        areaName: _areaController.text,
-        category: _categoryController.text,
-        subCategory: _subCategoryController.text,
-        price: _tryParseDouble(_priceController.text),
-        currency: _currencyController.text,
-        isVeg: _isVeg,
-        note: _noteController.text,
-        latitude: lat,
-        longitude: lng,
-      );
+      if (widget.isEditMode) {
+        await _contributionService.submitItemEditSuggestion(
+          targetItemId: widget.targetItemId!,
+          itemName: _itemController.text,
+          restaurantName: _restaurantController.text,
+          city: _cityController.text,
+          areaName: _areaController.text,
+          category: _categoryController.text,
+          subCategory: _subCategoryController.text,
+          price: _tryParseDouble(_priceController.text),
+          isVeg: _isVeg,
+          note: _noteController.text,
+          latitude: lat,
+          longitude: lng,
+        );
+      } else {
+        await _contributionService.submitSuggestion(
+          itemName: _itemController.text,
+          restaurantName: _restaurantController.text,
+          city: _cityController.text,
+          areaName: _areaController.text,
+          category: _categoryController.text,
+          subCategory: _subCategoryController.text,
+          price: _tryParseDouble(_priceController.text),
+          currency: _currencyController.text,
+          isVeg: _isVeg,
+          note: _noteController.text,
+          latitude: lat,
+          longitude: lng,
+        );
+      }
 
       if (!mounted) return;
-
-      _showSnack('Suggestion submitted successfully.');
+      _showSnack(
+        widget.isEditMode
+            ? 'Edit suggestion submitted for review.'
+            : 'Suggestion submitted successfully.',
+      );
       Navigator.of(context).pop(true);
     } catch (_) {
       if (!mounted) return;
@@ -210,9 +264,9 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
         elevation: 0,
         backgroundColor: AppTheme.fog,
         foregroundColor: AppTheme.ink,
-        title: const Text(
-          'Suggest an item',
-          style: TextStyle(fontWeight: FontWeight.w800),
+        title: Text(
+          widget.isEditMode ? 'Suggest correction' : 'Suggest an item',
+          style: const TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
       bottomNavigationBar: SafeArea(
@@ -239,9 +293,9 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
                 color: AppTheme.snow,
               ),
             )
-                : const Text(
-              'Submit suggestion',
-              style: TextStyle(
+                : Text(
+              widget.isEditMode ? 'Submit correction' : 'Submit suggestion',
+              style: const TextStyle(
                 fontWeight: FontWeight.w800,
                 fontSize: 15,
               ),
@@ -257,6 +311,27 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
             physics: const BouncingScrollPhysics(),
             children: [
               _buildHeroCard(),
+              if (widget.isEditMode) ...[
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.offWhite,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppTheme.silver),
+                  ),
+                  child: const Text(
+                    'Suggest a correction for this item. Your changes will go live only after admin approval.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      color: AppTheme.slate,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 18),
               _sectionCard(
                 title: 'Basic details',

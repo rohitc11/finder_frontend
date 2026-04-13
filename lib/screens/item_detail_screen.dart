@@ -14,6 +14,7 @@ import '../theme/app_theme.dart';
 import 'auth/login_screen.dart';
 import 'reviews/write_review_bottom_sheet.dart';
 import '../utils/map_utils.dart';
+import 'contributions/suggest_item_screen.dart';
 
 /// Item detail screen.
 ///
@@ -473,6 +474,51 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     }
   }
 
+  Future<void> _openSuggestCorrectionScreen(ItemModel? item) async {
+    if (!UserSession.isLoggedIn) {
+      if (!mounted) return;
+
+      final bool? loggedIn = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (_) => const LoginScreen(),
+        ),
+      );
+
+      if (loggedIn != true || !mounted) {
+        return;
+      }
+    }
+
+    final bool? submitted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => SuggestItemScreen(
+          isEditMode: true,
+          targetItemId: item?.id ?? widget.summary.itemId,
+          initialItemName: item?.itemName ?? widget.summary.itemName,
+          initialRestaurantName:
+          item?.restaurantName ?? widget.summary.restaurantName,
+          initialCity: item?.city ?? widget.summary.city,
+          initialAreaName: item?.areaName ?? widget.summary.areaName,
+          initialCategory: item?.category ?? '',
+          initialSubCategory: item?.subCategory ?? '',
+          initialPrice: item?.price,
+          initialCurrency: item?.currency ?? 'INR',
+          initialIsVeg: item?.isVeg,
+          initialLatitude: item?.latitude,
+          initialLongitude: item?.longitude,
+        ),
+      ),
+    );
+
+    if (submitted == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Correction suggestion submitted for admin review.'),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final item = _item;
@@ -523,6 +569,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
           _buildInfoCards(context, item),
           const SizedBox(height: 20),
           _buildLocationCard(context, item),
+          const SizedBox(height: 20),
+          _buildSuggestCorrectionCard(context, item),
           const SizedBox(height: 20),
           _buildDescriptionCard(context, item),
           const SizedBox(height: 20),
@@ -839,6 +887,76 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSuggestCorrectionCard(BuildContext context, ItemModel? item) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppTheme.snow,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppTheme.shadowXs,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppTheme.offWhite,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.edit_location_alt_rounded,
+              color: AppTheme.ink,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  'Spot something incorrect?',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.ink,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Suggest a correction for city, area, location, or other item details. Changes are applied only after admin approval.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.stone,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          OutlinedButton(
+            onPressed: () => _openSuggestCorrectionScreen(item),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.accent,
+              side: const BorderSide(color: AppTheme.accent),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            ),
+            child: const Text(
+              'Suggest',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
         ],
       ),
     );

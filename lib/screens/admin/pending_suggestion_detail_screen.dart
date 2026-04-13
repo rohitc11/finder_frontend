@@ -29,7 +29,11 @@ class _PendingSuggestionDetailScreenState
     });
 
     try {
-      await _adminService.approveSuggestionAsNew(widget.item.id);
+      if (widget.item.isEditSuggestion) {
+        await _adminService.approveSuggestionAsEdit(widget.item.id);
+      } else {
+        await _adminService.approveSuggestionAsNew(widget.item.id);
+      }
 
       if (!mounted) return;
       Navigator.of(context).pop(true);
