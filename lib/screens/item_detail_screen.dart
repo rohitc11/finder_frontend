@@ -12,6 +12,7 @@ import '../services/user_service.dart';
 import '../theme/app_theme.dart';
 import 'auth/login_screen.dart';
 import 'reviews/write_review_bottom_sheet.dart';
+import '../utils/map_utils.dart';
 
 /// Item detail screen.
 ///
@@ -190,6 +191,35 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
         _item = null;
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _openItemLocationInMap(ItemModel? item) async {
+    final double? latitude = item?.latitude;
+    final double? longitude = item?.longitude;
+
+    if (latitude == null || longitude == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Location not available for this item.'),
+        ),
+      );
+      return;
+    }
+
+    try {
+      await MapUtils.openDirections(
+        latitude: latitude,
+        longitude: longitude,
+      );
+    } catch (_) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not open map. Please try again.'),
+        ),
+      );
     }
   }
 
@@ -497,11 +527,40 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Location',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Location',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (hasCoordinates)
+                Row(
+                  children: [
+                    IconButton(
+                      tooltip: 'Get Directions',
+                      onPressed: () => _openItemLocationInMap(item),
+                      icon: const Icon(
+                        Icons.directions_rounded,
+                        color: AppTheme.accent,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Text(
+                      'Directions',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.accent,
+                      ),
+                    ),
+                  ],
+                )
+            ],
           ),
           const SizedBox(height: 12),
           if (hasReadableLocation || hasCoordinates) ...[
@@ -517,10 +576,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                 Expanded(
                   child: Text(
                     hasReadableLocation
-                        ? [
-                      if (area.isNotEmpty) area,
-                      if (city.isNotEmpty) city,
-                    ].join(', ')
+                        ? [if (area.isNotEmpty) area, if (city.isNotEmpty) city]
+                        .join(', ')
                         : 'Coordinates available',
                     style: const TextStyle(
                       fontSize: 14,
@@ -540,6 +597,15 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                   fontSize: 12,
                   color: AppTheme.stone,
                   fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Tap the map icon to open directions.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.stone,
+                  height: 1.4,
                 ),
               ),
             ],
