@@ -133,6 +133,23 @@ class _SearchTabState extends State<SearchTab> {
     }
   }
 
+  String _normalizeSpaces(String value) {
+    return value.trim().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  RegExpMatch? _lastConnectorMatch(String query) {
+    final matches = RegExp(
+      r'\b(in|at|near)\b',
+      caseSensitive: false,
+    ).allMatches(query).toList();
+
+    if (matches.isEmpty) {
+      return null;
+    }
+
+    return matches.last;
+  }
+
   void _onSearchTextChanged() {
     setState(() {});
 
@@ -267,15 +284,84 @@ class _SearchTabState extends State<SearchTab> {
   }
 
   void _onSuggestionTap(SuggestionModel suggestion) {
-    final valueToSearch = suggestion.canonicalValue ?? suggestion.displayText;
+    final currentQuery = _searchController.text.trim();
+
+    final valueToSearch = _buildQueryFromSuggestion(
+      currentQuery: currentQuery,
+      suggestion: suggestion,
+    );
 
     _searchController.text = valueToSearch;
+    _searchController.selection = TextSelection.fromPosition(
+      TextPosition(offset: _searchController.text.length),
+    );
 
     setState(() {
       _showSuggestions = false;
     });
 
     _performSearch(valueToSearch);
+  }
+
+  String _buildQueryFromSuggestion({
+    required String currentQuery,
+    required SuggestionModel suggestion,
+  }) {
+    final selectedValue =
+    (suggestion.canonicalValue ?? suggestion.displayText).trim();
+
+    if (selectedValue.isEmpty) {
+      return currentQuery;
+    }
+
+    final query = _normalizeSpaces(currentQuery);
+    if (query.isEmpty) {
+      return selectedValue;
+    }
+
+    final tokens = query
+        .split(RegExp(r'\s+'))
+        .where((token) => token.trim().isNotEmpty)
+        .toList();
+
+    // Single typed fragment:
+    // "ahm" -> "Ahmedabad"
+    // "pani" -> "Panipuri"
+    if (tokens.length == 1) {
+      return selectedValue;
+    }
+
+    // Replace everything after the last connector.
+    // "panipuri in ahm" -> "panipuri in Ahmedabad"
+    // "dosa near nav"   -> "dosa near Navrangpura"
+    final connectorMatch = _lastConnectorMatch(query);
+    if (connectorMatch != null) {
+      final prefix = query.substring(0, connectorMatch.end).trim();
+      return '$prefix $selectedValue';
+    }
+
+    // Replace text after the last comma.
+    // "food, ahm" -> "food, Ahmedabad"
+    final commaIndex = query.lastIndexOf(',');
+    if (commaIndex != -1) {
+      final prefix = query.substring(0, commaIndex).trim();
+      if (prefix.isNotEmpty) {
+        return '$prefix, $selectedValue';
+      }
+    }
+
+    // Default: replace only the last typed fragment.
+    // "food ahm" -> "food Ahmedabad"
+    // "best pani pur" -> "best pani puri"
+    final lastSpaceIndex = query.lastIndexOf(' ');
+    if (lastSpaceIndex != -1) {
+      final prefix = query.substring(0, lastSpaceIndex).trim();
+      if (prefix.isNotEmpty) {
+        return '$prefix $selectedValue';
+      }
+    }
+
+    return selectedValue;
   }
 
   void _onQuickSearchTap(String query) {
