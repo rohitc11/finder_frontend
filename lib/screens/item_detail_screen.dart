@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
-
+import 'package:flutter/services.dart';
+import '../config/app_links.dart';
 import '../config/user_session.dart';
 import '../models/item_model.dart';
 import '../models/review_model.dart';
@@ -170,6 +171,255 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     }
   }
 
+  bool _shouldShowShareRating() {
+    final double? rating = _item?.avgItemRating ?? widget.summary.avgItemRating;
+    final int ratingCount =
+        _item?.ratingCount ?? widget.summary.ratingCount ?? 0;
+
+    return rating != null && rating >= 4.0 && ratingCount >= 20;
+  }
+
+  String _buildShareLink() {
+    final itemId = _item?.id ?? widget.summary.itemId;
+    return AppLinks.itemUrl(itemId);
+  }
+
+  String _buildShareMessage() {
+    final itemName = (_item?.itemName ?? widget.summary.itemName).trim();
+    final restaurantName =
+    (_item?.restaurantName ?? widget.summary.restaurantName).trim();
+    final areaName = (_item?.areaName ?? widget.summary.areaName).trim();
+    final city = (_item?.city ?? widget.summary.city).trim();
+    final double? rating = _item?.avgItemRating ?? widget.summary.avgItemRating;
+    final String link = _buildShareLink();
+
+    final String locationText = [
+      if (areaName.isNotEmpty) areaName,
+      if (city.isNotEmpty) city,
+    ].join(', ').trim();
+
+    final String headline = locationText.isNotEmpty
+        ? '🔥 Must-try dish in $locationText'
+        : '🔥 Must-try dish on Spotzy';
+
+    final StringBuffer message = StringBuffer()
+      ..writeln(headline)
+      ..writeln()
+      ..writeln('🍽 $itemName at $restaurantName');
+
+    if (_shouldShowShareRating() && rating != null) {
+      message.writeln('⭐ Rated ${rating.toStringAsFixed(1)} on Spotzy');
+    }
+
+    message
+      ..writeln()
+      ..writeln('👉 Discover more iconic dishes on Spotzy')
+      ..write(link);
+
+    return message.toString();
+  }
+
+  Future<void> _shareItem() async {
+    final String itemName = (_item?.itemName ?? widget.summary.itemName).trim();
+
+    await Share.share(
+      _buildShareMessage(),
+      subject: '$itemName on Spotzy',
+    );
+  }
+
+  Future<void> _copyShareLink() async {
+    await Clipboard.setData(
+      ClipboardData(text: _buildShareLink()),
+    );
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Item link copied'),
+      ),
+    );
+  }
+
+  Future<void> _openShareSheet() async {
+    final itemName = (_item?.itemName ?? widget.summary.itemName).trim();
+    final restaurantName =
+    (_item?.restaurantName ?? widget.summary.restaurantName).trim();
+    final areaName = (_item?.areaName ?? widget.summary.areaName).trim();
+    final city = (_item?.city ?? widget.summary.city).trim();
+    final double? rating = _item?.avgItemRating ?? widget.summary.avgItemRating;
+
+    final String locationText = [
+      if (areaName.isNotEmpty) areaName,
+      if (city.isNotEmpty) city,
+    ].join(', ').trim();
+
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: AppTheme.snow,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppTheme.silver,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'Share this find',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.ink,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.fog,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        itemName,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        restaurantName,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.slate,
+                        ),
+                      ),
+                      if (locationText.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          locationText,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.stone,
+                          ),
+                        ),
+                      ],
+                      if (_shouldShowShareRating() && rating != null) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.star_rounded,
+                              size: 16,
+                              color: Color(0xFFFFA000),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              rating.toStringAsFixed(1),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.ink,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          Navigator.of(context).pop();
+                          await _copyShareLink();
+                        },
+                        icon: const Icon(Icons.link_rounded),
+                        label: const Text(
+                          'Copy link',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.ink,
+                          side: const BorderSide(color: AppTheme.silver),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          Navigator.of(context).pop();
+                          await _shareItem();
+                        },
+                        icon: const Icon(Icons.share_rounded),
+                        label: const Text(
+                          'Share now',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.accent,
+                          foregroundColor: AppTheme.snow,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          elevation: 0,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Sharing helps more people discover standout dishes on Spotzy.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.stone,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _loadItemDetail() async {
     setState(() {
       _isLoading = true;
@@ -223,40 +473,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     }
   }
 
-  Future<void> _shareItem() async {
-    final itemName = _item?.itemName ?? widget.summary.itemName;
-    final restaurantName = _item?.restaurantName ?? widget.summary.restaurantName;
-    final areaName = (_item?.areaName ?? widget.summary.areaName).trim();
-    final city = (_item?.city ?? widget.summary.city).trim();
-
-    final locationText = [
-      if (areaName.isNotEmpty) areaName,
-      if (city.isNotEmpty) city,
-    ].join(', ').trim();
-
-    final rating = _item?.avgItemRating ?? widget.summary.avgItemRating;
-
-    final message = StringBuffer()
-      ..writeln('Check out this standout dish on Spotzy')
-      ..writeln()
-      ..writeln('Item: $itemName')
-      ..writeln('Place: $restaurantName');
-
-    if (locationText.isNotEmpty) {
-      message.writeln('Location: $locationText');
-    }
-
-    if (rating != null) {
-      message.writeln('Rating: ${rating.toStringAsFixed(1)}');
-    }
-
-    message
-      ..writeln()
-      ..write('Discover iconic dishes on Spotzy.');
-
-    await Share.share(message.toString());
-  }
-
   @override
   Widget build(BuildContext context) {
     final item = _item;
@@ -281,7 +497,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
             actions: [
               IconButton(
                 tooltip: 'Share item',
-                onPressed: _shareItem,
+                onPressed: _openShareSheet,
                 icon: const Icon(Icons.share_rounded),
               ),
             ],
@@ -538,27 +754,22 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                 ),
               ),
               if (hasCoordinates)
-                Row(
-                  children: [
-                    IconButton(
-                      tooltip: 'Get Directions',
-                      onPressed: () => _openItemLocationInMap(item),
-                      icon: const Icon(
-                        Icons.directions_rounded,
-                        color: AppTheme.accent,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Text(
-                      'Directions',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.accent,
-                      ),
-                    ),
-                  ],
+                TextButton.icon(
+                  onPressed: () => _openItemLocationInMap(item),
+                  icon: const Icon(
+                    Icons.directions_rounded,
+                    size: 18,
+                  ),
+                  label: const Text(
+                    'Directions',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppTheme.accent,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    minimumSize: Size.zero,
+                  ),
                 )
             ],
           ),
