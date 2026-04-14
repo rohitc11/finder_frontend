@@ -564,6 +564,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
         children: [
           _buildHeroCard(context, item),
           const SizedBox(height: 20),
+          _buildWriteReviewCard(context),
+          const SizedBox(height: 20),
           _buildMetaChips(item),
           const SizedBox(height: 20),
           _buildInfoCards(context, item),
@@ -573,8 +575,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
           _buildSuggestCorrectionCard(context, item),
           const SizedBox(height: 20),
           _buildDescriptionCard(context, item),
-          const SizedBox(height: 20),
-          _buildWriteReviewCard(context),
           const SizedBox(height: 20),
           _buildReviewsSection(context),
           if (_isLoading) ...[
