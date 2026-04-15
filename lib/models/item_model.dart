@@ -1,12 +1,4 @@
 /// Model representing one full item detail returned by backend.
-///
-/// Notes:
-/// - backend returns location as GeoJSON-like object:
-///   {
-///     "type": "Point",
-///     "coordinates": [longitude, latitude]
-///   }
-/// - frontend exposes latitude / longitude as optional convenience fields
 class ItemModel {
   final String id;
   final String itemName;
@@ -18,17 +10,15 @@ class ItemModel {
   final String subCategory;
   final double? avgItemRating;
   final int? ratingCount;
+  final int likeCount;
+  final bool likedByCurrentUser;
   final double? price;
   final String currency;
   final bool isVeg;
   final bool isAvailable;
   final bool isVerified;
   final bool isActive;
-
-  /// Optional latitude parsed from backend location.coordinates[1]
   final double? latitude;
-
-  /// Optional longitude parsed from backend location.coordinates[0]
   final double? longitude;
 
   ItemModel({
@@ -42,6 +32,8 @@ class ItemModel {
     required this.subCategory,
     required this.avgItemRating,
     required this.ratingCount,
+    required this.likeCount,
+    required this.likedByCurrentUser,
     required this.price,
     required this.currency,
     required this.isVeg,
@@ -55,17 +47,7 @@ class ItemModel {
   /// Creates model from backend JSON response.
   factory ItemModel.fromJson(Map json) {
     final location = json['location'];
-    double? latitude;
-    double? longitude;
-
-    if (location is Map && location['coordinates'] is List) {
-      final coordinates = location['coordinates'] as List;
-
-      if (coordinates.length >= 2) {
-        longitude = (coordinates[0] as num?)?.toDouble();
-        latitude = (coordinates[1] as num?)?.toDouble();
-      }
-    }
+    final coordinates = location is Map ? location['coordinates'] : null;
 
     return ItemModel(
       id: json['id'] ?? '',
@@ -78,14 +60,66 @@ class ItemModel {
       subCategory: json['subCategory'] ?? '',
       avgItemRating: (json['avgItemRating'] as num?)?.toDouble(),
       ratingCount: json['ratingCount'],
+      likeCount: (json['likeCount'] ?? 0) as int,
+      likedByCurrentUser: json['likedByCurrentUser'] ?? false,
       price: (json['price'] as num?)?.toDouble(),
       currency: json['currency'] ?? 'INR',
       isVeg: json['isVeg'] ?? false,
       isAvailable: json['isAvailable'] ?? false,
       isVerified: json['isVerified'] ?? false,
       isActive: json['isActive'] ?? false,
-      latitude: latitude,
-      longitude: longitude,
+      latitude: coordinates is List && coordinates.length >= 2
+          ? (coordinates[1] as num?)?.toDouble()
+          : null,
+      longitude: coordinates is List && coordinates.length >= 2
+          ? (coordinates[0] as num?)?.toDouble()
+          : null,
+    );
+  }
+
+  ItemModel copyWith({
+    String? id,
+    String? itemName,
+    String? restaurantId,
+    String? restaurantName,
+    String? city,
+    String? areaName,
+    String? category,
+    String? subCategory,
+    double? avgItemRating,
+    int? ratingCount,
+    int? likeCount,
+    bool? likedByCurrentUser,
+    double? price,
+    String? currency,
+    bool? isVeg,
+    bool? isAvailable,
+    bool? isVerified,
+    bool? isActive,
+    double? latitude,
+    double? longitude,
+  }) {
+    return ItemModel(
+      id: id ?? this.id,
+      itemName: itemName ?? this.itemName,
+      restaurantId: restaurantId ?? this.restaurantId,
+      restaurantName: restaurantName ?? this.restaurantName,
+      city: city ?? this.city,
+      areaName: areaName ?? this.areaName,
+      category: category ?? this.category,
+      subCategory: subCategory ?? this.subCategory,
+      avgItemRating: avgItemRating ?? this.avgItemRating,
+      ratingCount: ratingCount ?? this.ratingCount,
+      likeCount: likeCount ?? this.likeCount,
+      likedByCurrentUser: likedByCurrentUser ?? this.likedByCurrentUser,
+      price: price ?? this.price,
+      currency: currency ?? this.currency,
+      isVeg: isVeg ?? this.isVeg,
+      isAvailable: isAvailable ?? this.isAvailable,
+      isVerified: isVerified ?? this.isVerified,
+      isActive: isActive ?? this.isActive,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
     );
   }
 }

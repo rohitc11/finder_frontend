@@ -114,6 +114,8 @@ class SavedTabState extends State<SavedTab> {
       areaName: item.areaName,
       avgItemRating: null,
       ratingCount: null,
+      likeCount: 0,
+      likedByCurrentUser: false,
       distanceInKm: null,
       isBookmarked: true,
     );

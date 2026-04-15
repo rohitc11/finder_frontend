@@ -1,17 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../config/feature_flags.dart';
-import '../../config/user_session.dart';
-import '../../models/search_result_model.dart';
-import '../../services/location_service.dart';
-import '../../services/search_service.dart';
 import '../../theme/app_theme.dart';
 import '../contributions/my_contributions_screen.dart';
 import '../contributions/suggest_item_screen.dart';
-import '../item_detail_screen.dart';
 import 'search_tab.dart';
-import '../../services/bucket_list_service.dart';
-import '../auth/login_screen.dart';
 
 /// Home tab shown as the first screen inside the app shell.
 ///
@@ -275,14 +268,9 @@ class HomeTab extends StatelessWidget {
   }
 
   /// Builds quick actions for launch.
-  ///
-  /// Launch decision:
-  /// - only Best Near Me is enabled for now
-  /// - Top Rated and Must Try remain visible but disabled until rating/ranking is ready
   Widget _buildQuickActions(BuildContext context) {
     final List<_QuickActionData> actions = [];
 
-    // Add only enabled actions
     if (FeatureFlags.isBestNearMeQuickActionEnabled) {
       actions.add(
         _QuickActionData(
@@ -316,7 +304,6 @@ class HomeTab extends StatelessWidget {
       );
     }
 
-    // Safety fallback (in case all are false)
     if (actions.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -343,7 +330,7 @@ class HomeTab extends StatelessWidget {
       ) {
     return InkWell(
       onTap: () {
-        _openQuickSearchResults(
+        _openSearchFlow(
           context,
           title: action.label,
           query: action.query,
@@ -396,9 +383,6 @@ class HomeTab extends StatelessWidget {
   }
 
   /// Builds clickable popular search chips.
-  ///
-  /// Launch note:
-  /// - Best Near Me is intentionally repeated here because it already works well
   Widget _buildPopularSearchChips(BuildContext context) {
     final suggestions = [
       'Best Near Me',
@@ -418,7 +402,7 @@ class HomeTab extends StatelessWidget {
             (text) => InkWell(
           onTap: () {
             final query = text == 'Best Near Me' ? 'near me' : text;
-            _openQuickSearchResults(
+            _openSearchFlow(
               context,
               title: text,
               query: query,
@@ -532,16 +516,16 @@ class HomeTab extends StatelessWidget {
     );
   }
 
-  void _openQuickSearchResults(
+  void _openSearchFlow(
       BuildContext context, {
         required String title,
         required String query,
       }) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => _QuickSearchResultsScreen(
+        builder: (_) => _SearchPageWrapper(
           title: title,
-          query: query,
+          initialQuery: query,
         ),
       ),
     );
@@ -571,105 +555,13 @@ class _ValueCardData {
 }
 
 class _SearchPageWrapper extends StatelessWidget {
-  const _SearchPageWrapper();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.fog,
-      appBar: AppBar(
-        backgroundColor: AppTheme.fog,
-        foregroundColor: AppTheme.ink,
-        elevation: 0,
-        title: const Text(
-          'Search',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-      ),
-      body: const SearchTab(),
-    );
-  }
-}
-
-class _QuickSearchResultsScreen extends StatefulWidget {
   final String title;
-  final String query;
+  final String? initialQuery;
 
-  const _QuickSearchResultsScreen({
-    required this.title,
-    required this.query,
+  const _SearchPageWrapper({
+    this.title = 'Search',
+    this.initialQuery,
   });
-
-  @override
-  State<_QuickSearchResultsScreen> createState() =>
-      _QuickSearchResultsScreenState();
-}
-
-class _QuickSearchResultsScreenState extends State<_QuickSearchResultsScreen> {
-  final SearchService _searchService = SearchService();
-
-  bool _isLoading = true;
-  String? _errorMessage;
-  List<SearchResultModel> _results = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadResults();
-  }
-
-  Future<void> _loadResults() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      double? latitude;
-      double? longitude;
-
-      if (LocationService.hasNearMeIntent(widget.query)) {
-        final location = await LocationService.getCurrentLocationWithAddress();
-
-        if (location == null) {
-          if (!mounted) return;
-
-          setState(() {
-            _isLoading = false;
-            _results = [];
-            _errorMessage = 'Please enable current location for nearby search.';
-          });
-          return;
-        }
-
-        latitude = location.latitude;
-        longitude = location.longitude;
-      }
-
-      final results = await _searchService.fetchSmartSearch(
-        query: widget.query,
-        userId: UserSession.userId,
-        latitude: latitude,
-        longitude: longitude,
-        radiusInKm: 5.0,
-      );
-
-      if (!mounted) return;
-
-      setState(() {
-        _results = results;
-        _isLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-
-      setState(() {
-        _isLoading = false;
-        _results = [];
-        _errorMessage = 'Could not load search results right now.';
-      });
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -680,251 +572,12 @@ class _QuickSearchResultsScreenState extends State<_QuickSearchResultsScreen> {
         foregroundColor: AppTheme.ink,
         elevation: 0,
         title: Text(
-          widget.title,
+          title,
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
-      body: _isLoading
-          ? const Center(
-        child: CircularProgressIndicator(
-          color: AppTheme.accent,
-          strokeWidth: 2,
-        ),
-      )
-          : _errorMessage != null
-          ? _buildMessageCard(_errorMessage!)
-          : _results.isEmpty
-          ? _buildMessageCard('No items found for this search.')
-          : ListView.separated(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        itemCount: _results.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (_, index) {
-          final item = _results[index];
-          return _QuickSearchResultCard(item: item);
-        },
-      ),
-    );
-  }
-
-  Widget _buildMessageCard(String message) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: AppTheme.snow,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: AppTheme.shadowXs,
-          ),
-          child: Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 14,
-              color: AppTheme.stone,
-              height: 1.4,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickSearchResultCard extends StatefulWidget {
-  final SearchResultModel item;
-
-  const _QuickSearchResultCard({
-    required this.item,
-  });
-
-  @override
-  State<_QuickSearchResultCard> createState() => _QuickSearchResultCardState();
-}
-
-class _QuickSearchResultCardState extends State<_QuickSearchResultCard> {
-  final BucketListService _bucketListService = BucketListService();
-
-  late bool _isBookmarked;
-  bool _isUpdatingBookmark = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _isBookmarked = widget.item.isBookmarked;
-  }
-
-  Future<void> _toggleBookmark() async {
-    if (_isUpdatingBookmark) return;
-
-    if (!UserSession.isLoggedIn) {
-      final bool? loggedIn = await Navigator.of(context).push<bool>(
-        MaterialPageRoute(
-          builder: (_) => const LoginScreen(),
-        ),
-      );
-
-      if (loggedIn != true) {
-        return;
-      }
-    }
-
-    final previousValue = _isBookmarked;
-
-    setState(() {
-      _isUpdatingBookmark = true;
-      _isBookmarked = !_isBookmarked;
-    });
-
-    try {
-      if (_isBookmarked) {
-        await _bucketListService.addToBucketList(widget.item.itemId);
-      } else {
-        await _bucketListService.removeFromBucketList(widget.item.itemId);
-      }
-    } catch (_) {
-      if (!mounted) return;
-
-      setState(() {
-        _isBookmarked = previousValue;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not update bookmark. Please try again.'),
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isUpdatingBookmark = false;
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final item = widget.item;
-
-    return InkWell(
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ItemDetailScreen(summary: item),
-          ),
-        );
-      },
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppTheme.snow,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: AppTheme.shadowXs,
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: AppTheme.offWhite,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Icon(
-                Icons.restaurant_menu_rounded,
-                color: AppTheme.ink,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.itemName,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.ink,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.restaurantName,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppTheme.slate,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    [item.areaName, item.city]
-                        .where((e) => e.trim().isNotEmpty)
-                        .join(', '),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.stone,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                GestureDetector(
-                  onTap: _toggleBookmark,
-                  child: _isUpdatingBookmark
-                      ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppTheme.accent,
-                    ),
-                  )
-                      : Icon(
-                    _isBookmarked
-                        ? Icons.bookmark_rounded
-                        : Icons.bookmark_border_rounded,
-                    color: _isBookmarked
-                        ? AppTheme.accent
-                        : AppTheme.pebble,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                if (item.avgItemRating != null)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.star_rounded,
-                        size: 16,
-                        color: Color(0xFFFF9F0A),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        item.avgItemRating!.toStringAsFixed(1),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.ink,
-                        ),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ],
-        ),
+      body: SearchTab(
+        initialQuery: initialQuery,
       ),
     );
   }

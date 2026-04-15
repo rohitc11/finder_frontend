@@ -8,6 +8,7 @@ import '../../models/suggestion_model.dart';
 import '../../services/bucket_list_service.dart';
 import '../../services/location_service.dart';
 import '../../services/search_service.dart';
+import '../../services/item_service.dart';
 import '../../theme/app_theme.dart';
 import '../auth/login_screen.dart';
 import '../item_detail_screen.dart';
@@ -21,7 +22,12 @@ import '../contributions/suggest_item_screen.dart';
 /// - triggers backend smart search
 /// - renders search results in a clean and minimal way
 class SearchTab extends StatefulWidget {
-  const SearchTab({super.key});
+  final String? initialQuery;
+
+  const SearchTab({
+    super.key,
+    this.initialQuery,
+  });
 
   @override
   State<SearchTab> createState() => _SearchTabState();
@@ -35,6 +41,7 @@ class _SearchTabState extends State<SearchTab> {
 
   final SearchService _searchService = SearchService();
   final BucketListService _bucketListService = BucketListService();
+  final ItemService _itemService = ItemService();
 
   Timer? _debounce;
 
@@ -53,6 +60,16 @@ class _SearchTabState extends State<SearchTab> {
         setState(() {});
       }
     });
+
+    final initialQuery = widget.initialQuery?.trim();
+    if (initialQuery != null && initialQuery.isNotEmpty) {
+      _searchController.text = initialQuery;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _performSearch(initialQuery);
+      });
+    }
   }
 
   @override
@@ -87,16 +104,7 @@ class _SearchTabState extends State<SearchTab> {
     final bool newValue = !oldValue;
 
     setState(() {
-      _results[index] = SearchResultModel(
-        itemId: _results[index].itemId,
-        itemName: _results[index].itemName,
-        restaurantId: _results[index].restaurantId,
-        restaurantName: _results[index].restaurantName,
-        city: _results[index].city,
-        areaName: _results[index].areaName,
-        avgItemRating: _results[index].avgItemRating,
-        ratingCount: _results[index].ratingCount,
-        distanceInKm: _results[index].distanceInKm,
+      _results[index] = _results[index].copyWith(
         isBookmarked: newValue,
       );
     });
@@ -111,16 +119,7 @@ class _SearchTabState extends State<SearchTab> {
       if (!mounted) return;
 
       setState(() {
-        _results[index] = SearchResultModel(
-          itemId: _results[index].itemId,
-          itemName: _results[index].itemName,
-          restaurantId: _results[index].restaurantId,
-          restaurantName: _results[index].restaurantName,
-          city: _results[index].city,
-          areaName: _results[index].areaName,
-          avgItemRating: _results[index].avgItemRating,
-          ratingCount: _results[index].ratingCount,
-          distanceInKm: _results[index].distanceInKm,
+        _results[index] = _results[index].copyWith(
           isBookmarked: oldValue,
         );
       });
@@ -128,6 +127,64 @@ class _SearchTabState extends State<SearchTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Could not update bookmark. Please try again.'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _toggleWorthTrying(SearchResultModel result) async {
+    if (!UserSession.isLoggedIn) {
+      final bool? loggedIn = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (_) => const LoginScreen(),
+        ),
+      );
+
+      if (loggedIn != true) {
+        return;
+      }
+    }
+
+    final int index =
+    _results.indexWhere((element) => element.itemId == result.itemId);
+    if (index == -1) return;
+
+    final SearchResultModel oldItem = _results[index];
+    final bool newLiked = !oldItem.likedByCurrentUser;
+    final int newCount = newLiked
+        ? oldItem.likeCount + 1
+        : (oldItem.likeCount > 0 ? oldItem.likeCount - 1 : 0);
+
+    setState(() {
+      _results[index] = oldItem.copyWith(
+        likedByCurrentUser: newLiked,
+        likeCount: newCount,
+      );
+    });
+
+    try {
+      final resultState = newLiked
+          ? await _itemService.markWorthTrying(result.itemId)
+          : await _itemService.removeWorthTrying(result.itemId);
+
+      if (!mounted) return;
+
+      setState(() {
+        _results[index] = _results[index].copyWith(
+          likedByCurrentUser: resultState.worthTrying,
+          likeCount: resultState.likeCount,
+        );
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _results[index] = oldItem;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not update Worth Trying. Please try again.'),
         ),
       );
     }
@@ -324,24 +381,16 @@ class _SearchTabState extends State<SearchTab> {
         .where((token) => token.trim().isNotEmpty)
         .toList();
 
-    // Single typed fragment:
-    // "ahm" -> "Ahmedabad"
-    // "pani" -> "Panipuri"
     if (tokens.length == 1) {
       return selectedValue;
     }
 
-    // Replace everything after the last connector.
-    // "panipuri in ahm" -> "panipuri in Ahmedabad"
-    // "dosa near nav"   -> "dosa near Navrangpura"
     final connectorMatch = _lastConnectorMatch(query);
     if (connectorMatch != null) {
       final prefix = query.substring(0, connectorMatch.end).trim();
       return '$prefix $selectedValue';
     }
 
-    // Replace text after the last comma.
-    // "food, ahm" -> "food, Ahmedabad"
     final commaIndex = query.lastIndexOf(',');
     if (commaIndex != -1) {
       final prefix = query.substring(0, commaIndex).trim();
@@ -350,9 +399,6 @@ class _SearchTabState extends State<SearchTab> {
       }
     }
 
-    // Default: replace only the last typed fragment.
-    // "food ahm" -> "food Ahmedabad"
-    // "best pani pur" -> "best pani puri"
     final lastSpaceIndex = query.lastIndexOf(' ');
     if (lastSpaceIndex != -1) {
       final prefix = query.substring(0, lastSpaceIndex).trim();
@@ -607,12 +653,19 @@ class _SearchTabState extends State<SearchTab> {
         final result = _results[index];
 
         return InkWell(
-          onTap: () {
-            Navigator.of(context).push(
+          onTap: () async {
+            await Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => ItemDetailScreen(summary: result),
               ),
             );
+
+            if (!mounted) return;
+
+            final currentQuery = _searchController.text.trim();
+            if (currentQuery.isNotEmpty) {
+              await _performSearch(currentQuery);
+            }
           },
           borderRadius: BorderRadius.circular(16),
           child: Container(
@@ -669,6 +722,70 @@ class _SearchTabState extends State<SearchTab> {
                           color: AppTheme.stone,
                         ),
                       ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          if (result.avgItemRating != null) ...[
+                            const Icon(
+                              Icons.star_rounded,
+                              size: 16,
+                              color: Color(0xFFFF9F0A),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              result.avgItemRating!.toStringAsFixed(1),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.ink,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '(${result.ratingCount ?? 0})',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.stone,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                          ],
+                          InkWell(
+                            onTap: () => _toggleWorthTrying(result),
+                            borderRadius: BorderRadius.circular(999),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 2,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    result.likedByCurrentUser
+                                        ? Icons.favorite_rounded
+                                        : Icons.favorite_border_rounded,
+                                    size: 16,
+                                    color: result.likedByCurrentUser
+                                        ? AppTheme.accent
+                                        : AppTheme.pebble,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${result.likeCount}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: result.likedByCurrentUser
+                                          ? AppTheme.accent
+                                          : AppTheme.stone,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -687,25 +804,14 @@ class _SearchTabState extends State<SearchTab> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    if (result.avgItemRating != null)
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.star_rounded,
-                            size: 16,
-                            color: Color(0xFFFF9F0A),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            result.avgItemRating!.toStringAsFixed(1),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.ink,
-                            ),
-                          ),
-                        ],
+                    if (result.distanceInKm != null)
+                      Text(
+                        '${result.distanceInKm!.toStringAsFixed(1)} km',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.stone,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                   ],
                 ),

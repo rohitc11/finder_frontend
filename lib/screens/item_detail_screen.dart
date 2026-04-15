@@ -45,6 +45,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
   bool _isReviewsLoading = true;
   bool _isLoading = true;
+  bool _isWorthTryingLoading = false;
 
   ItemModel? _item;
 
@@ -93,7 +94,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
   Future<void> _loadReviews() async {
     try {
-      final reviews = await _reviewService.fetchReviewsByItem(widget.summary.itemId);
+      final reviews =
+      await _reviewService.fetchReviewsByItem(widget.summary.itemId);
 
       if (!mounted) return;
       setState(() {
@@ -172,10 +174,75 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     }
   }
 
+  Future<void> _toggleWorthTrying() async {
+    if (!UserSession.isLoggedIn) {
+      final bool? loggedIn = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (_) => const LoginScreen(),
+        ),
+      );
+
+      if (loggedIn != true || !mounted) {
+        return;
+      }
+
+      await _loadCurrentUser();
+      await _loadItemDetail();
+      return;
+    }
+
+    final item = _item;
+    if (item == null || _isWorthTryingLoading) {
+      return;
+    }
+
+    final bool oldLiked = item.likedByCurrentUser;
+    final int oldCount = item.likeCount;
+
+    setState(() {
+      _isWorthTryingLoading = true;
+      _item = item.copyWith(
+        likedByCurrentUser: !oldLiked,
+        likeCount: oldLiked ? (oldCount > 0 ? oldCount - 1 : 0) : oldCount + 1,
+      );
+    });
+
+    try {
+      final result = oldLiked
+          ? await _itemService.removeWorthTrying(item.id)
+          : await _itemService.markWorthTrying(item.id);
+
+      if (!mounted) return;
+
+      setState(() {
+        _item = _item?.copyWith(
+          likedByCurrentUser: result.worthTrying,
+          likeCount: result.likeCount,
+        );
+        _isWorthTryingLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _item = _item?.copyWith(
+          likedByCurrentUser: oldLiked,
+          likeCount: oldCount,
+        );
+        _isWorthTryingLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not update Worth Trying. Please try again.'),
+        ),
+      );
+    }
+  }
+
   bool _shouldShowShareRating() {
     final double? rating = _item?.avgItemRating ?? widget.summary.avgItemRating;
-    final int ratingCount =
-        _item?.ratingCount ?? widget.summary.ratingCount ?? 0;
+    final int ratingCount = _item?.ratingCount ?? widget.summary.ratingCount ?? 0;
 
     return rating != null && rating >= 4.0 && ratingCount >= 20;
   }
@@ -592,11 +659,13 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
   Widget _buildHeroCard(BuildContext context, ItemModel? item) {
     final displayName = item?.itemName ?? widget.summary.itemName;
-    final displayRestaurant = item?.restaurantName ?? widget.summary.restaurantName;
+    final displayRestaurant =
+        item?.restaurantName ?? widget.summary.restaurantName;
     final displayArea = item?.areaName ?? widget.summary.areaName;
     final displayCity = item?.city ?? widget.summary.city;
     final displayRating = item?.avgItemRating ?? widget.summary.avgItemRating;
-    final displayRatingCount = item?.ratingCount ?? widget.summary.ratingCount;
+    final displayRatingCount =
+        item?.ratingCount ?? widget.summary.ratingCount;
 
     return Container(
       width: double.infinity,
@@ -686,6 +755,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                 ),
             ],
           ),
+          const SizedBox(height: 10),
+          _buildWorthTryingRow(item),
           const SizedBox(height: 14),
           Row(
             children: [
@@ -715,6 +786,56 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     );
   }
 
+  Widget _buildWorthTryingRow(ItemModel? item) {
+    final int likeCount = item?.likeCount ?? 0;
+    final bool liked = item?.likedByCurrentUser ?? false;
+
+    return InkWell(
+      onTap: _isWorthTryingLoading ? null : _toggleWorthTrying,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Icon(
+              liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+              size: 18,
+              color: liked ? AppTheme.accent : AppTheme.pebble,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Worth Trying',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: liked ? AppTheme.accent : AppTheme.slate,
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (_isWorthTryingLoading)
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppTheme.accent,
+                ),
+              )
+            else
+              Text(
+                '· $likeCount',
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.stone,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildMetaChips(ItemModel? item) {
     final chips = <Widget>[];
 
@@ -727,15 +848,21 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     }
 
     if (item != null && item.isVeg) {
-      chips.add(_metaChip('Veg', const Color(0xFFE8F7ED), const Color(0xFF2E7D32)));
+      chips.add(
+        _metaChip('Veg', const Color(0xFFE8F7ED), const Color(0xFF2E7D32)),
+      );
     }
 
     if (item != null && item.isAvailable) {
-      chips.add(_metaChip('Available', const Color(0xFFEAF4FF), const Color(0xFF1565C0)));
+      chips.add(
+        _metaChip('Available', const Color(0xFFEAF4FF), const Color(0xFF1565C0)),
+      );
     }
 
     if (item != null && item.isVerified) {
-      chips.add(_metaChip('Verified', const Color(0xFFFFF4E5), const Color(0xFFEF6C00)));
+      chips.add(
+        _metaChip('Verified', const Color(0xFFFFF4E5), const Color(0xFFEF6C00)),
+      );
     }
 
     if (chips.isEmpty) {
@@ -814,7 +941,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                   ),
                   style: TextButton.styleFrom(
                     foregroundColor: AppTheme.accent,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     minimumSize: Size.zero,
                   ),
@@ -950,7 +1078,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             ),
             child: const Text(
               'Suggest',
