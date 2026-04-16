@@ -61,6 +61,12 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
   late final TextEditingController _latitudeController;
   late final TextEditingController _longitudeController;
 
+
+  List<String> _selectedCuisineTypes = [];
+  List<String> _selectedMealTypes = [];
+  List<String> _selectedCourseTypes = [];
+  List<String> _selectedDietTags = [];
+  List<String> _selectedExperienceTags = [];
   bool? _isVeg;
   bool _isSubmitting = false;
 
@@ -75,6 +81,58 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
   bool _showLocationSection = false;
 
   bool get _isAdmin => (UserSession.role ?? '').toUpperCase() == 'ADMIN';
+
+  static const List<String> _cuisineOptions = [
+    'North Indian',
+    'South Indian',
+    'Gujarati',
+    'Punjabi',
+    'Street Food',
+    'Fast Food',
+    'Chinese',
+    'Italian',
+    'Cafe',
+    'Bakery',
+    'Desserts',
+    'Beverages',
+    'Fusion',
+  ];
+
+  static const List<String> _mealTypeOptions = [
+    'Breakfast',
+    'Lunch',
+    'Dinner',
+    'Evening Snack',
+    'Late Night',
+  ];
+
+  static const List<String> _courseTypeOptions = [
+    'Snack',
+    'Main Course',
+    'Starter',
+    'Dessert',
+    'Beverage',
+    'Street Bite',
+  ];
+
+  static const List<String> _dietTagOptions = [
+    'Veg',
+    'Non-Veg',
+    'Jain',
+    'Vegan',
+    'Egg',
+  ];
+
+  static const List<String> _experienceTagOptions = [
+    'Must Try',
+    'Signature',
+    'Best Seller',
+    'Famous',
+    'Budget Friendly',
+    'Premium',
+    'Heavy',
+    'Light',
+  ];
 
   @override
   void initState() {
@@ -127,6 +185,57 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
     super.dispose();
   }
 
+  Widget _multiSelectSection({
+    required String title,
+    required List<String> options,
+    required List<String> selectedValues,
+    required ValueChanged<List<String>> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: options.map((option) {
+            final selected = selectedValues.contains(option);
+
+            return FilterChip(
+              label: Text(option),
+              selected: selected,
+              onSelected: (_) {
+                final updated = [...selectedValues];
+                if (selected) {
+                  updated.remove(option);
+                } else {
+                  updated.add(option);
+                }
+                onChanged(updated);
+              },
+              selectedColor: AppTheme.offWhite,
+              checkmarkColor: AppTheme.accent,
+              labelStyle: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: selected ? AppTheme.ink : AppTheme.slate,
+              ),
+              backgroundColor: AppTheme.snow,
+              side: BorderSide(
+                color: selected ? AppTheme.accent : AppTheme.silver,
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
   Future<void> _submit() async {
     final valid = _formKey.currentState?.validate() ?? false;
     if (!valid || _isSubmitting) return;
@@ -158,6 +267,11 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
           areaName: _areaController.text,
           category: _categoryController.text,
           subCategory: _subCategoryController.text,
+          cuisineTypes: _selectedCuisineTypes,
+          mealTypes: _selectedMealTypes,
+          courseTypes: _selectedCourseTypes,
+          dietTags: _selectedDietTags,
+          experienceTags: _selectedExperienceTags,
           price: _tryParseDouble(_priceController.text),
           isVeg: _isVeg,
           note: _noteController.text,
@@ -172,6 +286,11 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
           areaName: _areaController.text,
           category: _categoryController.text,
           subCategory: _subCategoryController.text,
+          cuisineTypes: _selectedCuisineTypes,
+          mealTypes: _selectedMealTypes,
+          courseTypes: _selectedCourseTypes,
+          dietTags: _selectedDietTags,
+          experienceTags: _selectedExperienceTags,
           price: _tryParseDouble(_priceController.text),
           currency: _currencyController.text,
           isVeg: _isVeg,
@@ -445,6 +564,41 @@ class _SuggestItemScreenState extends State<SuggestItemScreen> {
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 16),
+                    _multiSelectSection(
+                      title: 'Cuisine type',
+                      options: _cuisineOptions,
+                      selectedValues: _selectedCuisineTypes,
+                      onChanged: (values) => setState(() => _selectedCuisineTypes = values),
+                    ),
+                    const SizedBox(height: 16),
+                    _multiSelectSection(
+                      title: 'Meal type',
+                      options: _mealTypeOptions,
+                      selectedValues: _selectedMealTypes,
+                      onChanged: (values) => setState(() => _selectedMealTypes = values),
+                    ),
+                    const SizedBox(height: 16),
+                    _multiSelectSection(
+                      title: 'Course type',
+                      options: _courseTypeOptions,
+                      selectedValues: _selectedCourseTypes,
+                      onChanged: (values) => setState(() => _selectedCourseTypes = values),
+                    ),
+                    const SizedBox(height: 16),
+                    _multiSelectSection(
+                      title: 'Diet tags',
+                      options: _dietTagOptions,
+                      selectedValues: _selectedDietTags,
+                      onChanged: (values) => setState(() => _selectedDietTags = values),
+                    ),
+                    const SizedBox(height: 16),
+                    _multiSelectSection(
+                      title: 'Experience tags',
+                      options: _experienceTagOptions,
+                      selectedValues: _selectedExperienceTags,
+                      onChanged: (values) => setState(() => _selectedExperienceTags = values),
                     ),
                     const SizedBox(height: 14),
                     Row(

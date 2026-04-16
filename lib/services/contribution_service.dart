@@ -68,6 +68,11 @@ class ContributionService {
     String note = '',
     double? latitude,
     double? longitude,
+    List<String>? cuisineTypes,
+    List<String>? mealTypes,
+    List<String>? courseTypes,
+    List<String>? dietTags,
+    List<String>? experienceTags,
   }) async {
     final uri = Uri.parse(ApiConfig.contributionSuggestionsEndpoint);
 
@@ -78,6 +83,11 @@ class ContributionService {
       'areaName': areaName.trim(),
       'category': category.trim(),
       'subCategory': subCategory.trim(),
+      'cuisineTypes': cuisineTypes ?? [],
+      'mealTypes': mealTypes ?? [],
+      'courseTypes': courseTypes ?? [],
+      'dietTags': dietTags ?? [],
+      'experienceTags': experienceTags ?? [],
       'price': price,
       'currency': currency.trim().isEmpty ? 'INR' : currency.trim(),
       'isVeg': isVeg,
@@ -117,6 +127,12 @@ class ContributionService {
     String? note,
     double? latitude,
     double? longitude,
+    List<String>? cuisineTypes,
+    List<String>? mealTypes,
+    List<String>? courseTypes,
+    List<String>? dietTags,
+    List<String>? experienceTags,
+
   }) async {
     final uri = Uri.parse(ApiConfig.itemEditSuggestionEndpoint);
 
@@ -128,6 +144,11 @@ class ContributionService {
       'areaName': _trimToNullable(areaName),
       'category': _trimToNullable(category),
       'subCategory': _trimToNullable(subCategory),
+      'cuisineTypes': cuisineTypes ?? [],
+      'mealTypes': mealTypes ?? [],
+      'courseTypes': courseTypes ?? [],
+      'dietTags': dietTags ?? [],
+      'experienceTags': experienceTags ?? [],
       'price': price,
       'isVeg': isVeg,
       'note': _trimToNullable(note),
