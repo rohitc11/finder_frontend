@@ -46,6 +46,7 @@ class _ProfileTabState extends State<ProfileTab> {
   int _contributionCount = 0;
 
   bool _isLoading = true;
+  bool _isDeletingAccount = false;
 
   @override
   void initState() {
@@ -122,6 +123,81 @@ class _ProfileTabState extends State<ProfileTab> {
     );
   }
 
+  Future<void> _deleteAccount() async {
+    if (_isDeletingAccount) return;
+
+    final bool confirmed = await _showDeleteAccountDialog();
+    if (!confirmed) return;
+
+    setState(() {
+      _isDeletingAccount = true;
+    });
+
+    try {
+      await _userService.deleteCurrentAccount();
+      await UserSession.clear();
+
+      if (!mounted) return;
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => const HomeScreen(),
+        ),
+            (route) => false,
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Your account has been deleted.'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDeletingAccount = false;
+        });
+      }
+    }
+  }
+
+  Future<bool> _showDeleteAccountDialog() async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete account?'),
+          content: const Text(
+            'This will permanently delete your account and associated data such as reviews, bookmarks, suggestions, and rewards history. This action cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.error,
+                foregroundColor: AppTheme.snow,
+              ),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return confirmed == true;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!UserSession.isLoggedIn) {
@@ -157,6 +233,8 @@ class _ProfileTabState extends State<ProfileTab> {
                 const SizedBox(height: 18),
                 _buildMenuCard(context),
                 const SizedBox(height: 18),
+                _buildDeleteAccountButton(),
+                const SizedBox(height: 12),
                 _buildLogoutButton(),
               ],
             ),
@@ -797,6 +875,36 @@ class _ProfileTabState extends State<ProfileTab> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeleteAccountButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton(
+        onPressed: _isDeletingAccount ? null : _deleteAccount,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppTheme.error,
+          side: const BorderSide(color: AppTheme.error),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        child: _isDeletingAccount
+            ? const SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: AppTheme.error,
+          ),
+        )
+            : const Text(
+          'Delete Account',
+          style: TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
     );

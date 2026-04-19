@@ -11,6 +11,7 @@ class UserService {
   /// Fetches current logged-in user profile.
   Future<UserModel> fetchCurrentUser() async {
     final uri = Uri.parse(ApiConfig.currentUserEndpoint);
+
     final response = await http.get(
       uri,
       headers: {
@@ -22,8 +23,7 @@ class UserService {
       throw Exception('Failed to load current user');
     }
 
-    final Map<String, dynamic> data =
-    jsonDecode(response.body) as Map<String, dynamic>;
+    final Map data = jsonDecode(response.body) as Map;
     return UserModel.fromJson(data);
   }
 
@@ -45,15 +45,30 @@ class UserService {
       throw Exception(_extractMessage(response.body, 'Failed to update public username'));
     }
 
-    final Map<String, dynamic> data =
-    jsonDecode(response.body) as Map<String, dynamic>;
+    final Map data = jsonDecode(response.body) as Map;
     return UserModel.fromJson(data);
+  }
+
+  Future<void> deleteCurrentAccount() async {
+    final uri = Uri.parse(ApiConfig.currentUserEndpoint);
+
+    final response = await http.delete(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        ...UserSession.authHeaders,
+      },
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_extractMessage(response.body, 'Failed to delete account'));
+    }
   }
 
   String _extractMessage(String body, String fallback) {
     try {
       final decoded = jsonDecode(body);
-      if (decoded is Map<String, dynamic>) {
+      if (decoded is Map) {
         if ((decoded['message'] ?? '').toString().trim().isNotEmpty) {
           return decoded['message'].toString();
         }
@@ -62,6 +77,7 @@ class UserService {
         }
       }
     } catch (_) {}
+
     return fallback;
   }
 }
